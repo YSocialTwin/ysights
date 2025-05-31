@@ -1,7 +1,9 @@
 import json
+from collections import defaultdict
 
 
 class Post:
+
     def __init__(self, row):
         """
         Initialize a Post object with data from a database row.
@@ -23,8 +25,9 @@ class Post:
         self.mentions = []
         self.toxicity = {}
         self.emotions = []
+        self.reactions = defaultdict(int)
 
-    def enrich_post(self, cursor, dimensions=["sentiment", "hashtags"]):
+    def enrich_post(self, cursor, dimensions=["all"]):
         """
         Enrich the post with additional data from the database based on specified dimensions.
         :param cursor:
@@ -44,6 +47,8 @@ class Post:
                 self.__enrich_post_topics(cursor)
             elif dimension == "toxicity":
                 self.__enrich_post_toxicity(cursor)
+            elif dimension == "reactions":
+                self.__enrich_post_reactions(cursor)
             elif dimension == "all":
                 self.__enrich_post_sentiment(cursor)
                 self.__enrich_post_hashtags(cursor)
@@ -51,6 +56,7 @@ class Post:
                 self.__enrich_post_emotions(cursor)
                 self.__enrich_post_topics(cursor)
                 self.__enrich_post_toxicity(cursor)
+                self.__enrich_post_reactions(cursor)
             else:
                 raise ValueError(f"Unknown dimension: {dimension}")
 
@@ -125,6 +131,17 @@ class Post:
                 "sexual_explicit": user_data[8],
                 "flirtation": user_data[9],
             }
+
+    def __enrich_post_reactions(self, cursor):
+        """Enrich the post with reactions from the database."""
+        cursor.execute(
+            "SELECT type FROM reactions WHERE post_id = ?", (self.id,)
+        )
+        user_data = cursor.fetchall()
+
+        if user_data:
+            for row in user_data:
+                self.reactions[row[0]] += 1
 
     def __repr__(self):
         return f"Post(id={self.id}, text={self.text}, user_id={self.user_id}, sentiment={self.sentiment}, hashtags={self.hashtags}, topics={self.topics}, mentions={self.mentions}, emotions={self.emotions}, toxicity={self.toxicity})"
