@@ -4,7 +4,7 @@ from os import path
 
 
 __author__ = "Giulio Rossetti"
-__license__ = "BSD-2-Clause"
+__license__ = "GPL-3.0"
 __email__ = "giulio.rossetti@gmail.com"
 
 
@@ -21,9 +21,9 @@ with open(path.join(here, "requirements.txt"), encoding="utf-8") as f:
 setup(
     name="ysights",
     version="0.1.0",
-    license="BSD-Clause-2",
+    license="GPL-3.0",
     description="ySights - Extract insights from YSocial simulations",
-    url="https://github.com/GiulioRossetti/ysights",
+    url="https://github.com/YSocialTwin/ysights",
     author="Giulio Rossetti",
     author_email="giulio.rossetti@gmail.com",
     classifiers=[
@@ -48,8 +48,7 @@ setup(
     install_requires=requirements,
     long_description=long_description,
     long_description_content_type="text/markdown",
-    },
     packages=find_packages(
-        exclude=["*.test", "*.test.*", "test.*", "test", "ysights.test", "ysights.test.*"]
+        exclude=["*.test", "*.test.*", "test.*", "test", "cdlib.test", "cdlib.test.*"]
     ),
 )
