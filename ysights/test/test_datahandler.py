@@ -1,7 +1,7 @@
 import unittest
 import os
 import networkx as nx
-from ysights.models.DataHandler import DataHandler, Agents, Agent, Posts, Post
+from ysights.models.YDataHandler import YDataHandler, Agents, Agent, Posts, Post
 
 
 class DataHandlerTestCase(unittest.TestCase):
@@ -12,7 +12,7 @@ class DataHandlerTestCase(unittest.TestCase):
 
         current_path = os.getcwd().split("ysights")[0] + "ysights" + db_path
 
-        handler = DataHandler(current_path)
+        handler = YDataHandler(current_path)
         return handler
 
     def test_get_agents(self):

@@ -8,7 +8,7 @@ from ysights.models.Agents import Agents, Agent
 from ysights.models.Posts import Posts, Post
 
 
-class DataHandler:
+class YDataHandler:
     def __init__(self, db_path):
         """
         Initialize the DataHandler with the path to the SQLite database.
