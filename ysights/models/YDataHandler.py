@@ -200,15 +200,15 @@ class YDataHandler:
         else:
             raise ValueError(f"Post ID {post_id} does not exist in the database.")
 
-    # Agent profiles
+    # Recommendations and visibility methods
 
     def agent_recommendations(self, agent_id, from_round=None, to_round=None):
         """
-        Retrieve the recommendations for a specific agent.
+        Retrieve the recommendations received by a specific agent.
         :param agent_id:
         :param from_round:
         :param to_round:
-        :return:
+        :return: Dictionary of UserPost (post author, id post) with the recommendation counter
         """
         if from_round is not None and to_round is not None:
             query = "SELECT r.post_ids FROM recommendations as r WHERE user_id = ? AND r.round >= ? AND r.round <= ?"
@@ -226,6 +226,47 @@ class YDataHandler:
                 recommendations[UserPost(agent_id=aid, post_id=int(r))] += 1
 
         return recommendations
+
+    def agent_posts_visibility(self, agent_id, rec_stats, from_round=None, to_round=None):
+        """
+        Retrieve the visibility of posts made by a specific agent.
+        :param agent_id:
+        :param rec_stats: Dictionary of post IDs and their recommendation counts
+        :param from_round:
+        :param to_round:
+        :return: Dictionary of post-IDs and their visibility (number of times they were recommended)
+        """
+        if from_round is not None and to_round is not None:
+            query = "SELECT p.id FROM post as p WHERE p.user_id = ? AND p.id round >= ? AND round <= ?"
+            data = self.__execute_query(query, (agent_id, from_round, to_round))
+        else:
+            query = "SELECT p.id FROM post as p WHERE p.user_id = ?"
+            data = self.__execute_query(query, (agent_id,))
+
+        posts = {int(row[0]): None for row in data}
+        # filter rec_stats to only include posts made by the agent
+        filtered_recs = {k: v for k, v in rec_stats.items() if k in posts}
+        return filtered_recs
+
+    def recommendations_per_post(self):
+        """
+        Retrieve the number of recommendations per post.
+        :return: Dictionary of post-IDs and their recommendation counts
+        """
+
+        # get all recommendations
+        query = "SELECT r.post_ids FROM recommendations as r"
+        recs = self.__execute_query(query)
+
+        rec_stats = defaultdict(int)
+        for row in recs:
+            rw = row[0].split("|")
+            for r in rw:
+                rec_stats[int(r)] += 1
+
+        return rec_stats
+
+    # Agent profiles
 
     def agent_reactions(self, agent_id, from_round=None, to_round=None):
         """

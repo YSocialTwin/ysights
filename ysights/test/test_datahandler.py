@@ -233,6 +233,21 @@ class DataHandlerTestCase(unittest.TestCase):
 
         handler.close()
 
+    def test_agent_posts_visibility(self):
+        handler = self.get_data_handler()
+        # Connect to the database
+        handler.connect()
+
+        rec_stats = handler.recommendations_per_post()
+        visibility = handler.agent_posts_visibility(99, rec_stats)
+        print(visibility)
+        self.assertIsInstance(visibility, dict)
+        for key, value in visibility.items():
+            self.assertIsInstance(key, int)
+            self.assertIsInstance(value, int)
+
+        handler.close()
+
 
 if __name__ == "__main__":
     unittest.main()
