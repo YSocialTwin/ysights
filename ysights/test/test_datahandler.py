@@ -61,6 +61,21 @@ class DataHandlerTestCase(unittest.TestCase):
         # Close the database connection
         handler.close()
 
+    def test_agent_recommendations(self):
+        handler = self.get_data_handler()
+        # Connect to the database
+        handler.connect()
+
+        recommendations = handler.agent_recommendations(99)
+        # Check if recommendations is a list
+        self.assertIsInstance(recommendations, dict)
+        # Check if each recommendation is a dictionary with expected keys
+        for rec, count in recommendations.items():
+            self.assertIsInstance(rec, tuple)
+            self.assertIsInstance(count, int)
+        # Close the database connection
+        handler.close()
+
     def test_get_posts_by_agent(self):
         handler = self.get_data_handler()
         # Connect to the database

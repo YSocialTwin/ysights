@@ -1,11 +1,13 @@
 import sqlite3
 import os
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 import networkx as nx
 
 from ysights.models.Agents import Agents, Agent
 from ysights.models.Posts import Posts, Post
+
+UserPost = namedtuple("UserPost", ["agent_id", "post_id"])
 
 
 class YDataHandler:
@@ -185,6 +187,19 @@ class YDataHandler:
             posts.add_post(post)
         return posts
 
+    def agent_id_by_post_id(self, post_id):
+        """
+        Retrieve the agent ID for a specific post ID.
+        :param post_id:
+        :return: agent_id
+        """
+        query = "SELECT user_id FROM post WHERE id = ?"
+        data = self.__execute_query(query, (post_id,))
+        if data:
+            return data[0][0]
+        else:
+            raise ValueError(f"Post ID {post_id} does not exist in the database.")
+
     # Agent profiles
 
     def agent_recommendations(self, agent_id, from_round=None, to_round=None):
@@ -204,7 +219,11 @@ class YDataHandler:
 
         recommendations = defaultdict(int)
         for row in data:
-            recommendations[row[0]] += 1
+            rw = row[0].split("|")
+
+            for r in rw:
+                aid = self.agent_id_by_post_id(int(r))
+                recommendations[UserPost(agent_id=aid, post_id=int(r))] += 1
 
         return recommendations
 
