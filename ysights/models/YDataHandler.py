@@ -167,8 +167,21 @@ class YDataHandler:
             posts[post_id] = post_id
         return posts
 
+    def posts(self):
+        """
+        Retrieve all posts from the database.
+        :return: Posts object containing all posts
+        """
+        query = "SELECT * FROM post"
+        data = self.__execute_query(query)
+        posts = Posts()
+        for row in data:
+            post = Post(row)
+            posts.add_post(post)
+        return posts
+
     def posts_by_agent(
-        self, agent_id, enrich_dimensions: list = ["sentiment", "hashtags"]
+        self, agent_id, enrich_dimensions: list = ["all"]
     ):
         """
         Retrieve posts made by a specific agent.
@@ -265,6 +278,31 @@ class YDataHandler:
                 rec_stats[int(r)] += 1
 
         return rec_stats
+
+    def recommendations_per_post_per_user(self):
+        """
+        Retrieve the number of recommendations per post per user.
+        :return: Dictionary of UserPost (post author, id post) with the recommendation counter
+        """
+
+        # get all recommendations
+        query = "SELECT r.user_id, r.post_ids FROM recommendations as r"
+        recs = self.__execute_query(query)
+
+        post_recs = {}
+        user_to_posts_read = defaultdict(list)
+        for uid, pts in recs:
+
+            pt_ids = pts.split("|")
+            for p in pt_ids:
+                user_to_posts_read[uid].append(int(p))
+                if p not in post_recs:
+                    post_recs[int(p)] = 1
+
+                else:
+                    post_recs[int(p)] += 1
+
+        return post_recs, user_to_posts_read
 
     # Agent profiles
 
