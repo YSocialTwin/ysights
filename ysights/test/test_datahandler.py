@@ -240,7 +240,6 @@ class DataHandlerTestCase(unittest.TestCase):
 
         rec_stats = handler.recommendations_per_post()
         visibility = handler.agent_posts_visibility(99, rec_stats)
-        print(visibility)
         self.assertIsInstance(visibility, dict)
         for key, value in visibility.items():
             self.assertIsInstance(key, int)
