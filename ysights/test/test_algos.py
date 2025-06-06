@@ -17,7 +17,6 @@ class AlgosTestCase(unittest.TestCase):
 
     def test_paradox_algorithm(self):
         handler = self.get_data_handler()
-        handler.connect()
         network = handler.social_network()
 
         results = visibility_paradox(handler, network, N=10)

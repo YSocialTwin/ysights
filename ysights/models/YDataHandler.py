@@ -6,6 +6,8 @@ import networkx as nx
 
 from ysights.models.Agents import Agents, Agent
 from ysights.models.Posts import Posts, Post
+from functools import wraps
+
 
 UserPost = namedtuple("UserPost", ["agent_id", "post_id"])
 
@@ -21,7 +23,31 @@ class YDataHandler:
 
     # Connection handling methods
 
-    def connect(self):
+    from functools import wraps
+
+    def _handle_db_connection(func):
+        """
+        Decorator to handle database connection for methods that require it.
+        :return: the wrapped function
+        """
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            """
+            Wrapper function to ensure the database connection is established before executing the method.
+
+            :param self:
+            :param args:
+            :param kwargs:
+            :return:
+            """
+            self.__connect()
+            result = func(self, *args, **kwargs)
+            self.__close()  # Ensure the connection is closed after the operation
+            return result
+
+        return wrapper
+
+    def __connect(self):
         """
         Connect to the SQLite database.
         :return:
@@ -30,7 +56,7 @@ class YDataHandler:
             raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
         self.connection = sqlite3.connect(self.db_path)
 
-    def close(self):
+    def __close(self):
         """
         Close the database connection if it is open.
         :return:
@@ -39,7 +65,7 @@ class YDataHandler:
             self.connection.close()
             self.connection = None
 
-    def get_cursor(self):
+    def __get_cursor(self):
         """
         Get a cursor for executing SQL queries.
         :return:
@@ -50,7 +76,7 @@ class YDataHandler:
 
     def __execute_query(self, query, params=None):
         """
-        Execute a SQL query and return the results.
+        Execute SQL query and return the results.
         :param query:
         :param params:
         :return:
@@ -61,8 +87,17 @@ class YDataHandler:
         cursor.execute(query, params or [])
         return cursor.fetchall()
 
-    # Time
+    @_handle_db_connection
+    def custom_query(self, query):
+        """
+        Execute a custom SQL query and return the results.
+        :param query: SQL query string
+        :return: Query results
+        """
+        return self.__execute_query(query)
 
+    # Time
+    @_handle_db_connection
     def time_range(self):
         """
         Retrieve the range of rounds in the database.
@@ -75,6 +110,7 @@ class YDataHandler:
         else:
             raise ValueError("No rounds found in the database.")
 
+    @_handle_db_connection
     def round_to_time(self, round_id):
         """
         Convert a round ID to a time representation.
@@ -88,6 +124,7 @@ class YDataHandler:
         else:
             raise ValueError(f"Round ID {round_id} does not exist in the database.")
 
+    @_handle_db_connection
     def time_to_round(self, day, hour=0):
         """
         Convert a time representation to a round ID.
@@ -103,7 +140,7 @@ class YDataHandler:
             raise ValueError(f"No round found for day {day} and hour {hour}.")
 
     # Agents and Posts methods
-
+    @_handle_db_connection
     def number_of_agents(self):
         """
         Retrieve the number of agents in the database.
@@ -113,6 +150,7 @@ class YDataHandler:
         data = self.__execute_query(query)
         return data[0][0] if data else 0
 
+    @_handle_db_connection
     def agents(self):
         """
         Retrieve all agents from the database.
@@ -126,6 +164,7 @@ class YDataHandler:
             agents.add_agent(ag)
         return agents
 
+    @_handle_db_connection
     def agents_by_feature(self, feature, value):
         """
         Retrieve agents based on a specific feature and value.
@@ -141,6 +180,7 @@ class YDataHandler:
             agents.add_agent(ag)
         return agents
 
+    @_handle_db_connection
     def agent_mapping(self):
         """
         Retrieve a mapping of agent IDs to their usernames.
@@ -153,6 +193,7 @@ class YDataHandler:
             agent_mapping[row[0]] = row[1]
         return agent_mapping
 
+    @_handle_db_connection
     def agent_post_ids(self, agent_id):
         """
         Retrieve all posts made by a specific agent.
@@ -167,6 +208,7 @@ class YDataHandler:
             posts[post_id] = post_id
         return posts
 
+    @_handle_db_connection
     def posts(self):
         """
         Retrieve all posts from the database.
@@ -180,6 +222,7 @@ class YDataHandler:
             posts.add_post(post)
         return posts
 
+    @_handle_db_connection
     def posts_by_agent(
         self, agent_id, enrich_dimensions: list = ["all"]
     ):
@@ -196,10 +239,11 @@ class YDataHandler:
             post = Post(row)
             if len(enrich_dimensions) > 0:
                 # Enrich the post with additional data
-                post.enrich_post(self.get_cursor(), enrich_dimensions)
+                post.enrich_post(self.__get_cursor(), enrich_dimensions)
             posts.add_post(post)
         return posts
 
+    @_handle_db_connection
     def agent_id_by_post_id(self, post_id):
         """
         Retrieve the agent ID for a specific post ID.
@@ -214,7 +258,7 @@ class YDataHandler:
             raise ValueError(f"Post ID {post_id} does not exist in the database.")
 
     # Recommendations and visibility methods
-
+    @_handle_db_connection
     def agent_recommendations(self, agent_id, from_round=None, to_round=None):
         """
         Retrieve the recommendations received by a specific agent.
@@ -240,6 +284,7 @@ class YDataHandler:
 
         return recommendations
 
+    @_handle_db_connection
     def agent_posts_visibility(self, agent_id, rec_stats, from_round=None, to_round=None):
         """
         Retrieve the visibility of posts made by a specific agent.
@@ -261,6 +306,7 @@ class YDataHandler:
         filtered_recs = {k: v for k, v in rec_stats.items() if k in posts}
         return filtered_recs
 
+    @_handle_db_connection
     def recommendations_per_post(self):
         """
         Retrieve the number of recommendations per post.
@@ -279,6 +325,7 @@ class YDataHandler:
 
         return rec_stats
 
+    @_handle_db_connection
     def recommendations_per_post_per_user(self):
         """
         Retrieve the number of recommendations per post per user.
@@ -305,7 +352,7 @@ class YDataHandler:
         return post_recs, user_to_posts_read
 
     # Agent profiles
-
+    @_handle_db_connection
     def agent_reactions(self, agent_id, from_round=None, to_round=None):
         """
         Retrieve all posts reacted to by a specific agent.
@@ -327,6 +374,7 @@ class YDataHandler:
 
         return reactions
 
+    @_handle_db_connection
     def agent_hashtags(self, agent_id, from_round=None, to_round=None):
         """
         Retrieve all hashtags used by a specific agent.
@@ -348,6 +396,7 @@ class YDataHandler:
 
         return hashtags
 
+    @_handle_db_connection
     def agent_interests(self, agent_id, from_round=None, to_round=None):
         """
         Retrieve the interest profile of a specific agent.
@@ -370,6 +419,7 @@ class YDataHandler:
 
         return interests
 
+    @_handle_db_connection
     def agent_emotions(self, agent_id, from_round=None, to_round=None):
         """
         Retrieve the sentiment profile of a specific agent.
@@ -391,6 +441,7 @@ class YDataHandler:
 
         return emotion
 
+    @_handle_db_connection
     def agent_toxicity(self, agent_id, from_round=None, to_round=None):
         """
         Retrieve the toxicity profile of a specific agent.
@@ -424,7 +475,7 @@ class YDataHandler:
         return toxicity
 
     # Network Extraction Methods #
-
+    @_handle_db_connection
     def ego_network_follower(self, agent_id, from_round=None, to_round=None):
         """
         Retrieve the ego network of a specific agent.
@@ -455,6 +506,7 @@ class YDataHandler:
 
         return g
 
+    @_handle_db_connection
     def ego_network_following(self, agent_id, from_round=None, to_round=None):
             """
             Retrieve the ego network of a specific agent.
@@ -485,6 +537,7 @@ class YDataHandler:
 
             return g
 
+    @_handle_db_connection
     def ego_network(self, agent_id, from_round=None, to_round=None):
             """
             Retrieve the ego network of a specific agent.
@@ -500,6 +553,7 @@ class YDataHandler:
 
             return g
 
+    @_handle_db_connection
     def social_network(self, from_round=None, to_round=None, agent_ids=None):
         """
         Retrieve the networks of all agents.
@@ -522,6 +576,7 @@ class YDataHandler:
 
         return merged_network
 
+    @_handle_db_connection
     def mention_ego_network(self, agent_id, from_round=None, to_round=None):
         """
         Retrieve the mention network of a specific agent.
@@ -547,6 +602,7 @@ class YDataHandler:
 
         return g
 
+    @_handle_db_connection
     def mention_network(self, from_round=None, to_round=None, agent_ids=None):
         """
         Retrieve the mention networks of all agents.
