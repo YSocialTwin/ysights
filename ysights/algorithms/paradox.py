@@ -95,7 +95,7 @@ def __stats(users_to_impressions_total, user_to_posts_read, user_to_posts, g):
 def __user_impressions_mapping(post_recs, user_to_posts):
     """
     Create a mapping of users to the number of impressions they received for each post.
-    
+
     :param post_recs:
     :param user_to_posts:
     :return:
@@ -134,6 +134,47 @@ def __z_test(observed_mean, synthetic_means):
     p_value = 2 * norm.sf(abs(z_score))  # two-tailed
 
     return z_score, p_value
+
+
+def user_visibility_vs_neighbors(YDH: YDataHandler, g):
+    """
+    Calculate the visibility for each user in the graph and the average of its neighbors' visibilities.
+
+    :param YDH:
+    :param g:
+    :return:
+    """
+
+    post_recs, user_to_posts_read = YDH.recommendations_per_post_per_user()
+    posts = YDH.posts()
+
+    post_to_users = {}
+    user_to_posts = {}
+    for pts in posts.get_posts():
+        if int(pts.user_id) not in user_to_posts:
+            user_to_posts[int(pts.user_id)] = [int(pts.id)]
+        else:
+            user_to_posts[int(pts.user_id)].append(int(pts.id))
+        post_to_users[int(pts.id)] = int(pts.user_id)
+
+    users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
+    users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
+
+    u_imp = []
+    n_avg_imp = []
+    for user, i in users_to_impressions_total.items():
+        u_imp.append(i)
+        n = g.neighbors(user)
+        tot = 0
+        norm = 0
+        for v in n:
+            if v in users_to_impressions_total:
+                tot += users_to_impressions_total[v]
+            norm += 1
+        tot /= norm
+        n_avg_imp.append(tot)
+
+    return u_imp, n_avg_imp
 
 
 def visibility_paradox(YDH: YDataHandler, g, N=100):

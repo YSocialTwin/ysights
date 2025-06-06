@@ -1,1 +1,1 @@
-from .paradox import visibility_paradox
+from .paradox import visibility_paradox, user_visibility_vs_neighbors
