@@ -177,6 +177,19 @@ class DataHandlerTestCase(unittest.TestCase):
             self.assertIsInstance(key, int)
             self.assertIsInstance(value, int)
 
+    def test_custom_query(self):
+        handler = self.get_data_handler()
+
+        query = "SELECT * FROM user_mgmt WHERE id = 1"
+        result = handler.custom_query(query)
+
+        # Check if result is a list
+        self.assertIsInstance(result, list)
+
+        # Check if each item in the result is a dictionary
+        for item in result:
+            self.assertIsInstance(item, tuple)
+
 
 if __name__ == "__main__":
     unittest.main()
