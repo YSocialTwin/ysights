@@ -14,4 +14,8 @@ from .global_trends import (
     tending_topics,
     comments_per_post_distribution,
 )
-from .recommendations import recommendations_per_post_distribution
+from .recommendations import (
+    recommendations_per_post_distribution,
+    recommendations_vs_reactions,
+    recommendations_vs_comments,
+)

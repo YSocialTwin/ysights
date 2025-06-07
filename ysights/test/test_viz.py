@@ -127,6 +127,20 @@ class VizTestCase(unittest.TestCase):
         pl = viz.recommendations_per_post_distribution(handler)
         self.assertIsInstance(pl, plt.Figure)
 
+    def test_recommendations_vs_reactions(self):
+        handler = self.get_data_handler()
+        pl = viz.recommendations_vs_reactions(handler)
+        self.assertIsInstance(pl, plt.Figure)
+        pl = viz.recommendations_vs_reactions(handler, density=True)
+        self.assertIsInstance(pl, plt.Figure)
+
+    def test_recommendations_vs_comments(self):
+        handler = self.get_data_handler()
+        pl = viz.recommendations_vs_comments(handler)
+        self.assertIsInstance(pl, plt.Figure)
+        pl = viz.recommendations_vs_comments(handler, density=True)
+        self.assertIsInstance(pl, plt.Figure)
+
 
 if __name__ == "__main__":
     unittest.main()
