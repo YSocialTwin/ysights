@@ -85,6 +85,48 @@ class VizTestCase(unittest.TestCase):
         pl = viz.topic_density_temporal_evolution(handler)
         self.assertIsInstance(pl, plotly.graph_objs.Figure)
 
+    def test_daily_contents_trends(self):
+        handler = self.get_data_handler()
+        pl = viz.daily_contents_trends(handler)
+        self.assertIsInstance(pl, plt.Figure)
+
+    def test_daily_reactions_trends(self):
+        handler = self.get_data_handler()
+        pl = viz.daily_reactions_trends(handler)
+        self.assertIsInstance(pl, plt.Figure)
+        pl = viz.daily_reactions_trends(handler, smooth_days=7)
+        self.assertIsInstance(pl, plt.Figure)
+
+    def test_contents_per_user_distributions(self):
+        handler = self.get_data_handler()
+        pl = viz.contents_per_user_distributions(handler)
+        self.assertIsInstance(pl, plt.Figure)
+
+    def test_trending_hashtags(self):
+        handler = self.get_data_handler()
+        pl = viz.trending_hashtags(handler)
+        self.assertIsInstance(pl, plt.Figure)
+
+    def test_trending_emotions(self):
+        handler = self.get_data_handler()
+        pl = viz.trending_emotions(handler)
+        self.assertIsInstance(pl, plt.Figure)
+
+    def test_trending_topics(self):
+        handler = self.get_data_handler()
+        pl = viz.tending_topics(handler)
+        self.assertIsInstance(pl, plt.Figure)
+
+    def test_comments_per_post_distribution(self):
+        handler = self.get_data_handler()
+        pl = viz.comments_per_post_distribution(handler)
+        self.assertIsInstance(pl, plt.Figure)
+
+    def test_recommendations_per_post_distribution(self):
+        handler = self.get_data_handler()
+        pl = viz.recommendations_per_post_distribution(handler)
+        self.assertIsInstance(pl, plt.Figure)
+
 
 if __name__ == "__main__":
     unittest.main()
