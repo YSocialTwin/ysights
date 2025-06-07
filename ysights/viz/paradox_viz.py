@@ -25,6 +25,20 @@ def paradox_density_scatter(x, y, xlabel='Impressions', ylabel='Avg. Neighbors I
     x = np.array(x)
     y = np.array(y)
 
+    def probability_below_diagonal(x1, y1):
+        """
+        Calculate the probability of points below the diagonal line y = x.
+
+        :param x1:
+        :param y1:
+        :return:
+        """
+        belowd = np.sum(y1 < x1)
+        total = len(x1)
+        return belowd / total if total > 0 else 0
+
+    below = probability_below_diagonal(x, y)
+
     # Calculate the point density
     xy = np.vstack([x, y])
     z = gaussian_kde(xy)(xy)
@@ -46,7 +60,7 @@ def paradox_density_scatter(x, y, xlabel='Impressions', ylabel='Avg. Neighbors I
     plt.colorbar(scatter, label='Density')
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
-    plt.title(title)
+    plt.title(f"{title} - Below Diagonal Probability: {below:.2f}")
     plt.grid(True)
     return fig
 
