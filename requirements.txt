@@ -2,3 +2,6 @@ networkx
 matplotlib
 numpy
 scipy
+seaborn
+plotly
+scikit-learn

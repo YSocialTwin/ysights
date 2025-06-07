@@ -63,7 +63,6 @@ def __stats(users_to_impressions_total, user_to_posts_read, user_to_posts, g):
 
     delta = []
     for n in g.nodes():
-
         if n in users_to_impressions_total:
             read = {pid: None for pid in set(user_to_posts_read[n])}
             scores = []
@@ -104,7 +103,6 @@ def __user_impressions_mapping(post_recs, user_to_posts):
 
     for k, v in user_to_posts.items():
         for p in v:
-
             if p in post_recs:
                 users_to_i[k].append(post_recs[p])
 
@@ -128,7 +126,9 @@ def __z_test(observed_mean, synthetic_means):
     sigma = np.std(synthetic_means, ddof=0)  # population std
 
     if sigma == 0:
-        raise ValueError("Standard deviation of synthetic means is zero — can't perform Z-test.")
+        raise ValueError(
+            "Standard deviation of synthetic means is zero — can't perform Z-test."
+        )
 
     z_score = (observed_mean - mu) / sigma
     p_value = 2 * norm.sf(abs(z_score))  # two-tailed
@@ -202,16 +202,22 @@ def visibility_paradox(YDH: YDataHandler, g, N=100):
     users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
     users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
 
-    nodes_coeffs = __stats(users_to_impressions_total, user_to_posts_read, user_to_posts, g)
+    nodes_coeffs = __stats(
+        users_to_impressions_total, user_to_posts_read, user_to_posts, g
+    )
 
     if N > 0:
         # NULL Models #
-        user_to_posts_list, post_to_user_list = __generate_randomized_mappings(user_to_posts, N)
+        user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
+            user_to_posts, N
+        )
         null_means_dist = []
         for i in range(len(user_to_posts_list)):
             u_to_p_n = user_to_posts_list[i]
             users_to_impressions_n = __user_impressions_mapping(post_recs, u_to_p_n)
-            mean = np.mean(__stats(users_to_impressions_n, user_to_posts_read, u_to_p_n, g))
+            mean = np.mean(
+                __stats(users_to_impressions_n, user_to_posts_read, u_to_p_n, g)
+            )
             null_means_dist.append(mean)
 
         z_score, p_value = __z_test(np.mean(nodes_coeffs), null_means_dist)
@@ -220,14 +226,12 @@ def visibility_paradox(YDH: YDataHandler, g, N=100):
             "nodes_coefficients": nodes_coeffs,
             "paradox_score": np.mean(nodes_coeffs),
             "z_score": z_score,
-            "p_value": p_value
+            "p_value": p_value,
         }
 
     return {
-            "nodes_coefficients": nodes_coeffs,
-            "paradox_score": np.mean(nodes_coeffs),
-            "z_score": None,
-            "p_value": None
-        }
-
-
+        "nodes_coefficients": nodes_coeffs,
+        "paradox_score": np.mean(nodes_coeffs),
+        "z_score": None,
+        "p_value": None,
+    }

@@ -30,6 +30,7 @@ class YDataHandler:
         Decorator to handle database connection for methods that require it.
         :return: the wrapped function
         """
+
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             """
@@ -223,9 +224,7 @@ class YDataHandler:
         return posts
 
     @_handle_db_connection
-    def posts_by_agent(
-        self, agent_id, enrich_dimensions: list = ["all"]
-    ):
+    def posts_by_agent(self, agent_id, enrich_dimensions: list = ["all"]):
         """
         Retrieve posts made by a specific agent.
         :param agent_id:
@@ -285,7 +284,9 @@ class YDataHandler:
         return recommendations
 
     @_handle_db_connection
-    def agent_posts_visibility(self, agent_id, rec_stats, from_round=None, to_round=None):
+    def agent_posts_visibility(
+        self, agent_id, rec_stats, from_round=None, to_round=None
+    ):
         """
         Retrieve the visibility of posts made by a specific agent.
         :param agent_id:
@@ -339,7 +340,6 @@ class YDataHandler:
         post_recs = {}
         user_to_posts_read = defaultdict(list)
         for uid, pts in recs:
-
             pt_ids = pts.split("|")
             for p in pt_ids:
                 user_to_posts_read[uid].append(int(p))
@@ -508,50 +508,50 @@ class YDataHandler:
 
     @_handle_db_connection
     def ego_network_following(self, agent_id, from_round=None, to_round=None):
-            """
-            Retrieve the ego network of a specific agent.
-            :param agent_id:
-            :param from_round:
-            :param to_round:
-            :return:
-            """
-            if from_round is not None and to_round is not None:
-                query = "SELECT follower_id, user_id, action FROM follow WHERE follower_id = ? AND round >= ? AND round <= ? order by round ASC"
-                data = self.__execute_query(query, (agent_id, from_round, to_round))
-            else:
-                query = "SELECT follower_id, user_id, action FROM follow WHERE follower_id = ? order by round ASC"
-                data = self.__execute_query(query, (agent_id,))
+        """
+        Retrieve the ego network of a specific agent.
+        :param agent_id:
+        :param from_round:
+        :param to_round:
+        :return:
+        """
+        if from_round is not None and to_round is not None:
+            query = "SELECT follower_id, user_id, action FROM follow WHERE follower_id = ? AND round >= ? AND round <= ? order by round ASC"
+            data = self.__execute_query(query, (agent_id, from_round, to_round))
+        else:
+            query = "SELECT follower_id, user_id, action FROM follow WHERE follower_id = ? order by round ASC"
+            data = self.__execute_query(query, (agent_id,))
 
-            ego_network = defaultdict(list)
-            for row in data:
-                ego_network[row[1]].append(row[2])
+        ego_network = defaultdict(list)
+        for row in data:
+            ego_network[row[1]].append(row[2])
 
-            # if len(ego_network[i]) is even, the edge has been removed and need to be removed from the ego network
-            for i in list(ego_network.keys()):
-                if len(ego_network[i]) % 2 == 0:
-                    ego_network.pop(i, None)
+        # if len(ego_network[i]) is even, the edge has been removed and need to be removed from the ego network
+        for i in list(ego_network.keys()):
+            if len(ego_network[i]) % 2 == 0:
+                ego_network.pop(i, None)
 
-            g = nx.DiGraph()
-            for n in ego_network.keys():
-                g.add_edge(n, agent_id)
+        g = nx.DiGraph()
+        for n in ego_network.keys():
+            g.add_edge(n, agent_id)
 
-            return g
+        return g
 
     @_handle_db_connection
     def ego_network(self, agent_id, from_round=None, to_round=None):
-            """
-            Retrieve the ego network of a specific agent.
-            :param agent_id:
-            :param from_round:
-            :param to_round:
-            :return:
-            """
-            following = self.ego_network_following(agent_id, from_round, to_round)
-            follower = self.ego_network_follower(agent_id, from_round, to_round)
+        """
+        Retrieve the ego network of a specific agent.
+        :param agent_id:
+        :param from_round:
+        :param to_round:
+        :return:
+        """
+        following = self.ego_network_following(agent_id, from_round, to_round)
+        follower = self.ego_network_follower(agent_id, from_round, to_round)
 
-            g = nx.compose(following, follower)
+        g = nx.compose(following, follower)
 
-            return g
+        return g
 
     @_handle_db_connection
     def social_network(self, from_round=None, to_round=None, agent_ids=None):

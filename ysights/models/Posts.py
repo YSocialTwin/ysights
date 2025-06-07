@@ -3,7 +3,6 @@ from collections import defaultdict
 
 
 class Post:
-
     def __init__(self, row):
         """
         Initialize a Post object with data from a database row.
@@ -134,9 +133,7 @@ class Post:
 
     def __enrich_post_reactions(self, cursor):
         """Enrich the post with reactions from the database."""
-        cursor.execute(
-            "SELECT type FROM reactions WHERE post_id = ?", (self.id,)
-        )
+        cursor.execute("SELECT type FROM reactions WHERE post_id = ?", (self.id,))
         user_data = cursor.fetchall()
 
         if user_data:

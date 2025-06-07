@@ -1,11 +1,11 @@
-import matplotlib.pyplot as plt
-
 import numpy as np
 from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
 
 
-def paradox_density_scatter(x, y, xlabel='Impressions', ylabel='Avg. Neighbors Impressions', title=""):
+def paradox_density_scatter(
+    x, y, xlabel="Impressions", ylabel="Avg. Neighbors Impressions", title=""
+):
     """
 
     :param x:
@@ -49,15 +49,15 @@ def paradox_density_scatter(x, y, xlabel='Impressions', ylabel='Avg. Neighbors I
 
     # Create the scatter plot
     fig = plt.figure(figsize=(8, 6))
-    scatter = plt.scatter(x, y, c=z, s=50, cmap='viridis')
+    scatter = plt.scatter(x, y, c=z, s=50, cmap="viridis")
     plt.plot()
 
     # Plot the x = y line
     min_val = min(np.min(x), np.min(y))
     max_val = np.max(y)
-    plt.plot([min_val, max_val], [min_val, max_val], 'r--', label='x = y')
+    plt.plot([min_val, max_val], [min_val, max_val], "r--", label="x = y")
 
-    plt.colorbar(scatter, label='Density')
+    plt.colorbar(scatter, label="Density")
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(f"{title} - Below Diagonal Probability: {below:.2f}")
@@ -65,7 +65,7 @@ def paradox_density_scatter(x, y, xlabel='Impressions', ylabel='Avg. Neighbors I
     return fig
 
 
-def paradox_histogram(x, bins=30, title='Friendship Paradox'):
+def paradox_histogram(x, bins=30, title="Friendship Paradox"):
     """
     Plot a histogram of the visibility paradox data.
 
@@ -82,9 +82,9 @@ def paradox_histogram(x, bins=30, title='Friendship Paradox'):
     >>> viz.paradox_histogram(results['nodes_coefficients'], bins=30, title="Visibility Paradox Histogram")
     """
     fig = plt.figure(figsize=(8, 5))
-    plt.hist(x, bins=bins, color='skyblue', edgecolor='black', alpha=0.7)
-    plt.xlabel('Value')
-    plt.ylabel('Frequency')
+    plt.hist(x, bins=bins, color="skyblue", edgecolor="black", alpha=0.7)
+    plt.xlabel("Value")
+    plt.ylabel("Frequency")
     plt.title(f"{title} - Score: {np.mean(x):.2f}")
     plt.grid(True)
     return fig

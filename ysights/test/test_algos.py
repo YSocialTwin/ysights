@@ -2,6 +2,7 @@ import unittest
 import os
 from ysights.models.YDataHandler import YDataHandler
 from ysights.algorithms.paradox import visibility_paradox
+from ysights.algorithms.profiles import profile_topics_similarity
 
 
 class AlgosTestCase(unittest.TestCase):
@@ -26,5 +27,9 @@ class AlgosTestCase(unittest.TestCase):
         self.assertIn("nodes_coefficients", results)
         self.assertIn("paradox_score", results)
 
+    def test_profile_similarity(self):
+        handler = self.get_data_handler()
+        network = handler.social_network()
 
-
+        results = profile_topics_similarity(handler, network)
+        self.assertIsInstance(results, dict)
