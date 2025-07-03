@@ -1,4 +1,4 @@
-from .paradox_viz import paradox_density_scatter, paradox_histogram
+from .paradox_viz import paradox_density_scatter, paradox_histogram, paradox_size_impact
 from .profiles_viz import (
     profile_similarity_distribution,
     profile_similarity_vs_degree,

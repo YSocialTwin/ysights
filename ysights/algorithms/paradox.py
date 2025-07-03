@@ -4,37 +4,106 @@ import networkx as nx
 import numpy as np
 from scipy.stats import norm
 import random
+import tqdm
 
 
-def __generate_randomized_mappings(original_dict, N, seed=None):
+def __stratified_node_sampling_by_degree_bins(G, percentage, seed=None, bins=None):
     """
-    Generate N randomized mappings of users to posts while preserving the original post-counts per user.
-    This function shuffles the posts for each user and returns a list of dictionaries mapping users to their posts
+    Sample a percentage of nodes from the graph G stratified by node degree bins.
 
-    :param original_dict:
-    :param N:
-    :param seed:
-    :return:
+    :param G: A NetworkX graph
+    :param percentage: float between 0 and 1 indicating the percentage of nodes to sample
+    :param seed: Random seed for reproducibility (optional)
+    :param bins: Optional list of degree bin edges. If None, logarithmic bins will be used.
+    :return: A set of sampled node IDs
     """
     if seed is not None:
         random.seed(seed)
 
-    # Step 1: Get post count per user and full list of post_ids
-    user_post_counts = {user: len(posts) for user, posts in original_dict.items()}
-    all_posts = [post for posts in original_dict.values() for post in posts]
+    if not (0 < percentage <= 1):
+        raise ValueError("Percentage must be between 0 and 1.")
 
+    # Get degree for each node
+    degrees = dict(G.degree())
+    degree_values = np.array(list(degrees.values()))
+
+    # Define bins (logarithmic by default)
+    if bins is None:
+        max_deg = max(degree_values)
+        bins = np.unique(np.logspace(0, np.log10(max_deg + 1), num=5, dtype=int))  # e.g., 4 bins
+
+    # Group nodes by bin
+    bin_to_nodes = defaultdict(list)
+    for node, deg in degrees.items():
+        for i in range(len(bins) - 1):
+            if bins[i] <= deg < bins[i + 1]:
+                bin_to_nodes[i].append(node)
+                break
+
+    # Sample from each bin
+    sampled_nodes = set()
+    total_target = int(percentage * G.number_of_nodes())
+
+    for group in bin_to_nodes.values():
+        sample_size = int(round(len(group) * percentage))
+        if sample_size > len(group):
+            sample_size = len(group)
+        sampled_nodes.update(random.sample(group, sample_size))
+
+    # Adjust to match target size exactly (optional)
+    if len(sampled_nodes) < total_target:
+        remaining = list(set(G.nodes()) - sampled_nodes)
+        sampled_nodes.update(random.sample(remaining, total_target - len(sampled_nodes)))
+    elif len(sampled_nodes) > total_target:
+        sampled_nodes = set(random.sample(list(sampled_nodes), total_target))
+
+    return sampled_nodes
+
+
+def __generate_randomized_mappings(original_dict, N, seed=None, x=1.0, g=None):
+    """
+    Generate N randomized mappings of users to posts while preserving the original post-counts per user.
+    A percentage x of users will have their mappings randomized, while the rest will retain the original mapping.
+
+    :param original_dict: dict mapping user to list of posts
+    :param N: number of randomized mappings to generate
+    :param seed: optional random seed
+    :param x: fraction of users to randomize (between 0 and 1)
+    :return: (list of user_to_posts dicts, list of post_to_user dicts)
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    users = list(original_dict.keys())
     user_to_posts_list = []
     post_to_user_list = []
 
     for _ in range(N):
-        random.shuffle(all_posts)
-        shuffled_posts = iter(all_posts)
+        # Sample x% of users to randomize
+        num_to_randomize = int(len(users) * x)
+        if x == 1:
+            randomized_users = set(users)
+        else:
+            randomized_users = __stratified_node_sampling_by_degree_bins(g, x)
+        # randomized_users = set(random.sample(users, num_to_randomize)) if x < 1 else set(users)
+        # static_users = set(users) - randomized_users
+
+        # Extract only posts from randomized users
+        randomized_posts = [post for user in randomized_users if user in original_dict for post in original_dict[user]]
+
+        random.shuffle(randomized_posts)
+        shuffled_posts = iter(randomized_posts)
 
         user_to_posts = {}
         post_to_user = {}
 
-        for user, count in user_post_counts.items():
-            posts = [next(shuffled_posts) for _ in range(count)]
+        # Assign shuffled posts to randomized users
+        for user in users:
+            if user in randomized_users:
+                count = len(original_dict[user])
+                posts = [next(shuffled_posts) for _ in range(count)]
+            else:
+                posts = original_dict[user]
             user_to_posts[user] = posts
             for post in posts:
                 post_to_user[post] = user
@@ -136,6 +205,57 @@ def __z_test(observed_mean, synthetic_means):
     return z_score, p_value
 
 
+def __z_test_two_distributions(x, y):
+    """
+    Perform a two-sample Z-test to compare the means of two distributions.
+
+    Parameters:
+    - x: list or array-like, first distribution
+    - y: list or array-like, second distribution
+
+    Returns:
+    - z_score: float, the Z statistic
+    - p_value: float, two-tailed p-value
+    """
+    x = np.array(x)
+    y = np.array(y)
+
+    mu_x = np.mean(x)
+    mu_y = np.mean(y)
+    sigma_x = np.std(x, ddof=0)  # population std
+    sigma_y = np.std(y, ddof=0)  # population std
+
+    if sigma_x == 0 or sigma_y == 0:
+        raise ValueError("Standard deviation of one or both distributions is zero.")
+
+    n_x = len(x)
+    n_y = len(y)
+
+    z_score = (mu_x - mu_y) / np.sqrt((sigma_x ** 2 / n_x) + (sigma_y ** 2 / n_y))
+    p_value = 2 * norm.sf(abs(z_score))  # two-tailed
+
+    return z_score, p_value
+
+
+def __mann_whitney_u_test(x, y):
+    """
+    Perform a Mann-Whitney U test to compare the distributions of two independent samples.
+
+    Parameters:
+    - x: list or array-like, first sample
+    - y: list or array-like, second sample
+
+    Returns:
+    - u_statistic: float, the U statistic
+    - p_value: float, two-tailed p-value
+    """
+    from scipy.stats import mannwhitneyu
+
+    u_statistic, p_value = mannwhitneyu(x, y, alternative='two-sided')
+
+    return u_statistic, p_value
+
+
 def user_visibility_vs_neighbors(YDH: YDataHandler, g):
     """
     Calculate the visibility for each user in the graph and the average of its neighbors' visibilities.
@@ -209,7 +329,7 @@ def visibility_paradox(YDH: YDataHandler, g, N=100):
     if N > 0:
         # NULL Models #
         user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
-            user_to_posts, N
+            user_to_posts, N, x=1
         )
         null_means_dist = []
         for i in range(len(user_to_posts_list)):
@@ -235,3 +355,70 @@ def visibility_paradox(YDH: YDataHandler, g, N=100):
         "z_score": None,
         "p_value": None,
     }
+
+
+def __visibility_paradox_sub_population(YDH: YDataHandler, g, N=100, x=0.1):
+    post_recs, user_to_posts_read = YDH.recommendations_per_post_per_user()
+    posts = YDH.posts()
+
+    post_to_users = {}
+    user_to_posts = {}
+    for pts in posts.get_posts():
+        if int(pts.user_id) not in user_to_posts:
+            user_to_posts[int(pts.user_id)] = [int(pts.id)]
+        else:
+            user_to_posts[int(pts.user_id)].append(int(pts.id))
+        post_to_users[int(pts.id)] = int(pts.user_id)
+
+    # null model generation
+    user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
+            user_to_posts, N, x=1
+        )
+    null_means_dist = []
+    for i in range(len(user_to_posts_list)):
+        u_to_p_n = user_to_posts_list[i]
+        users_to_impressions_n = __user_impressions_mapping(post_recs, u_to_p_n)
+        mean = np.mean(
+            __stats(users_to_impressions_n, user_to_posts_read, u_to_p_n, g)
+        )
+        null_means_dist.append(mean)
+
+    # generate a randomized mapping of users to posts for x% of the users
+    user_to_posts_list_partial, post_to_user_list_partial = __generate_randomized_mappings(
+        user_to_posts, N, x=1-x, g=g
+    )
+    partial_means_dist = []
+    for i in range(len(user_to_posts_list_partial)):
+        u_to_p_p = user_to_posts_list_partial[i]
+        users_to_impressions_p = __user_impressions_mapping(post_recs, u_to_p_p)
+        mean = np.mean(
+            __stats(users_to_impressions_p, user_to_posts_read, u_to_p_p, g)
+        )
+        partial_means_dist.append(mean)
+
+    # calculate the z-score and p-value for the partial mapping
+    z_score, p_value = __mann_whitney_u_test(partial_means_dist, null_means_dist) #__z_test_two_distributions(partial_means_dist, null_means_dist)
+    return {
+            "z_score": z_score,
+            "p_value": p_value,
+            "paradox_score_avg": np.mean(partial_means_dist),
+            "paradox_score_std": np.std(partial_means_dist),
+            }
+
+
+def visibility_paradox_population_size_null(YDH: YDataHandler, g, N=10, subject_to_rec=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]):
+    """
+    Calculate the visibility paradox metric for a given YDataHandler and graph,
+    considering the population size.
+
+    :param YDH: YDataHandler, the data handler containing the YSocial simulation data
+    :param g: networkx.Graph, the social network graph
+    :param N: int, number of null models to generate for statistical testing
+    :param x: float, fraction of users to randomize (between 0 and 1)
+    :return:
+    """
+    results = {}
+    for fraction in tqdm.tqdm(subject_to_rec):
+        results[fraction] = __visibility_paradox_sub_population(YDH, g, N=N, x=fraction)
+
+    return results

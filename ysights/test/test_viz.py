@@ -9,7 +9,7 @@ class VizTestCase(unittest.TestCase):
     @staticmethod
     def get_data_handler():
         # Assuming the database file exists at this path
-        db_path = f"{os.sep}example_data{os.sep}ysocial_db.db"
+        db_path = f"{os.sep}example_data{os.sep}RC_ER_database_server.db"#ysocial_db.db"
 
         current_path = os.getcwd().split("ysights")[0] + "ysights" + db_path
 
@@ -33,6 +33,19 @@ class VizTestCase(unittest.TestCase):
             data["nodes_coefficients"], bins=30, title="Visibility Paradox Histogram"
         )
         self.assertIsInstance(pl, plt.Figure)
+
+    def test_paradox_size_impact(self):
+        handler = self.get_data_handler()
+        network = handler.social_network()
+
+        results = algorithms.visibility_paradox_population_size_null(handler,
+                                                                     network,
+                                                                     N=30,
+                                                                     subject_to_rec=[.001, .005, .01, .05, .1, .25, .5, .75, .95])
+
+        pl = viz.paradox_size_impact(results)
+        self.assertIsInstance(pl, plt.Figure)
+        pl.show()
 
     def test_profile_similarity_distribution(self):
         handler = self.get_data_handler()
