@@ -57,7 +57,13 @@ Contents
 
 .. toctree::
    :maxdepth: 2
-   :caption: API Reference
+   :caption: Tutorials
+
+   tutorials
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Module Documentation
 
    modules/models
    modules/algorithms
@@ -65,7 +71,7 @@ Contents
 
 .. toctree::
    :maxdepth: 1
-   :caption: Additional Information
+   :caption: Complete API Reference
 
    api
 

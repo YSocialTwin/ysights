@@ -1,6 +1,9 @@
 sphinx>=8.0
 sphinx-rtd-theme>=3.0
 sphinx-autodoc-typehints>=3.0
+nbsphinx>=0.9
+ipykernel>=6.0
+pandoc>=2.0
 networkx
 matplotlib
 numpy
@@ -9,3 +12,4 @@ seaborn
 plotly
 scikit-learn
 pandas
+tqdm

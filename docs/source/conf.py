@@ -40,7 +40,13 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.autosummary',
     'sphinx_autodoc_typehints',
+    'nbsphinx',
 ]
+
+# nbsphinx configuration
+nbsphinx_execute = 'never'  # Don't execute notebooks during build
+nbsphinx_allow_errors = True  # Continue even if notebooks have errors
+nbsphinx_kernel_name = 'python3'
 
 templates_path = ['_templates']
 exclude_patterns = []
