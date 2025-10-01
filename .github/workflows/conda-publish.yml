@@ -1,0 +1,86 @@
+name: Build and Publish to Conda
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to Anaconda (true/false)'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  release:
+    types: [published]
+
+jobs:
+  build-conda:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+        channels: conda-forge,defaults
+        channel-priority: strict
+
+    - name: Install conda-build
+      shell: bash -l {0}
+      run: |
+        conda install -y conda-build anaconda-client
+
+    - name: Build conda package
+      shell: bash -l {0}
+      run: |
+        conda build . --output-folder ./conda-bld
+
+    - name: Upload conda package artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: conda-packages-${{ matrix.os }}-py${{ matrix.python-version }}
+        path: ./conda-bld/*/ysights-*.tar.bz2
+
+  publish-conda:
+    needs: build-conda
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') || github.event_name == 'release'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: conda-packages
+
+    - name: Set up Miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: '3.11'
+
+    - name: Install anaconda-client
+      shell: bash -l {0}
+      run: |
+        conda install -y anaconda-client
+
+    - name: Upload to Anaconda
+      if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+      shell: bash -l {0}
+      env:
+        ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
+      run: |
+        if [ -n "$ANACONDA_TOKEN" ]; then
+          find conda-packages -name "ysights-*.tar.bz2" -exec anaconda -t $ANACONDA_TOKEN upload --force {} \;
+        else
+          echo "Warning: ANACONDA_TOKEN not set. Skipping upload."
+        fi
