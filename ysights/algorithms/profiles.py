@@ -25,6 +25,7 @@ Example:
 """
 
 from collections import defaultdict
+
 from ysights.models.YDataHandler import YDataHandler
 
 

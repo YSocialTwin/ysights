@@ -1,11 +1,12 @@
-import unittest
 import os
-from ysights.models.YDataHandler import YDataHandler
+import unittest
+
 from ysights.algorithms.paradox import (
     visibility_paradox,
     visibility_paradox_population_size_null,
 )
 from ysights.algorithms.profiles import profile_topics_similarity
+from ysights.models.YDataHandler import YDataHandler
 
 
 class AlgosTestCase(unittest.TestCase):

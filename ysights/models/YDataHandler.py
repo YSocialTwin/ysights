@@ -1,13 +1,12 @@
-import sqlite3
 import os
+import sqlite3
 from collections import defaultdict, namedtuple
+from functools import wraps
 
 import networkx as nx
 
-from ysights.models.Agents import Agents, Agent
-from ysights.models.Posts import Posts, Post
-from functools import wraps
-
+from ysights.models.Agents import Agent, Agents
+from ysights.models.Posts import Post, Posts
 
 UserPost = namedtuple("UserPost", ["agent_id", "post_id"])
 

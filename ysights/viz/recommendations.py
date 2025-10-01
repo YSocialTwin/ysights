@@ -40,10 +40,12 @@ See Also:
     - :mod:`ysights.viz.global_trends`: Global content trends
 """
 
-import matplotlib.pyplot as plt
-from ysights.models.YDataHandler import YDataHandler
 from collections import defaultdict
+
+import matplotlib.pyplot as plt
 import pandas as pd
+
+from ysights.models.YDataHandler import YDataHandler
 
 
 def recommendations_per_post_distribution(YDH: YDataHandler):

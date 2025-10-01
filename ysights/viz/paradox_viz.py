@@ -45,9 +45,10 @@ See Also:
     - :func:`ysights.algorithms.paradox.user_visibility_vs_neighbors`: Get visibility data
 """
 
-import numpy as np
-from scipy.stats import gaussian_kde, alpha
 import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import alpha, gaussian_kde
+
 from ysights.algorithms.paradox import visibility_paradox
 
 

@@ -51,11 +51,13 @@ See Also:
     - :mod:`ysights.viz.recommendations`: Recommendation system visualizations
 """
 
-import matplotlib.pyplot as plt
-from ysights.models.YDataHandler import YDataHandler
 from collections import defaultdict
+
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MaxNLocator
+
+from ysights.models.YDataHandler import YDataHandler
 
 
 def daily_contents_trends(YDH: YDataHandler):

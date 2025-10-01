@@ -1,8 +1,10 @@
-import unittest
 import os
-from matplotlib import pyplot as plt
+import unittest
+
 import plotly
-from ysights import algorithms, viz, YDataHandler
+from matplotlib import pyplot as plt
+
+from ysights import YDataHandler, algorithms, viz
 
 
 class VizTestCase(unittest.TestCase):

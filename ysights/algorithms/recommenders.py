@@ -33,9 +33,10 @@ Example:
         print(f"Average personalization balance: {avg_balance:.3f}")
 """
 
-from ysights import YDataHandler
-from collections import defaultdict
 import math
+from collections import defaultdict
+
+from ysights import YDataHandler
 
 
 def engagement_momentum(YDH: YDataHandler, time_window_rounds: int = 24):

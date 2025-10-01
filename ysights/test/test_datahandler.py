@@ -1,7 +1,9 @@
-import unittest
 import os
+import unittest
+
 import networkx as nx
-from ysights.models.YDataHandler import YDataHandler, Agents, Agent, Posts, Post
+
+from ysights.models.YDataHandler import Agent, Agents, Post, Posts, YDataHandler
 
 
 class DataHandlerTestCase(unittest.TestCase):

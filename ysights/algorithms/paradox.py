@@ -59,13 +59,15 @@ See Also:
     :func:`visibility_paradox_population_size_null`: Analyze population size effects
 """
 
-from ysights.models.YDataHandler import YDataHandler
+import random
 from collections import defaultdict
+
 import networkx as nx
 import numpy as np
-from scipy.stats import norm
-import random
 import tqdm
+from scipy.stats import norm
+
+from ysights.models.YDataHandler import YDataHandler
 
 
 def __stratified_node_sampling_by_degree_bins(G, percentage, seed=None, bins=None):

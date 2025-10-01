@@ -45,8 +45,9 @@ See Also:
     - :mod:`ysights.viz.paradox_viz`: Paradox visualizations
 """
 
-import matplotlib.pyplot as plt
 from collections import defaultdict
+
+import matplotlib.pyplot as plt
 import numpy as np
 
 
