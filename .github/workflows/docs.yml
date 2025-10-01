@@ -1,0 +1,114 @@
+name: Documentation
+
+on:
+  # Build docs on every push to main and develop branches
+  push:
+    branches:
+      - main
+      - develop
+  # Build on pull requests
+  pull_request:
+    branches:
+      - main
+      - develop
+  # Allow manual workflow trigger with optional publish
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish documentation to GitHub Pages'
+        required: false
+        type: boolean
+        default: false
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pandoc
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install -r docs/requirements.txt
+        
+    - name: Build documentation
+      run: |
+        cd docs
+        make html
+        
+    - name: Check for build warnings
+      run: |
+        cd docs
+        if [ -f build/html/.buildinfo ]; then
+          echo "Documentation built successfully"
+        else
+          echo "Documentation build may have failed"
+          exit 1
+        fi
+        
+    - name: Upload documentation artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation-html
+        path: docs/build/html/
+        retention-days: 30
+        
+  publish:
+    name: Publish Documentation to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    # Only publish on manual trigger with publish input set to true
+    # OR on push to main branch (automatic deployment)
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Download documentation artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: documentation-html
+        path: ./docs-html
+        
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+      
+    - name: Upload to GitHub Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./docs-html
+        
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

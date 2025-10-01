@@ -243,6 +243,12 @@ The project includes comprehensive GitHub Actions workflows:
   - Runs Black and isort
   - Auto-commits formatting changes
 
+- **Documentation Workflow**: Build and publish Sphinx documentation
+  - Automatic build on every push (verifies docs build successfully)
+  - Publishes to GitHub Pages on push to main
+  - Manual trigger option for on-demand publishing
+  - Documentation available at: `https://ysocialtwin.github.io/ysights/`
+
 - **PyPI Publishing**: Build and publish packages to PyPI
   - Manual trigger for Test PyPI
   - Automatic publishing on releases

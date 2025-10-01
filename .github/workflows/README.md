@@ -55,6 +55,49 @@ Builds conda packages for multiple platforms:
   - Get token from: https://anaconda.org/settings/access
   - Add to: Repository Settings → Secrets and variables → Actions
 
+### 4. Auto-format Code (`auto-format.yml`)
+**Trigger:** Automatic on push to main/develop branches
+
+Automatically formats code with Black and isort:
+- Runs Black formatter on all Python files
+- Runs isort on all Python files
+- Commits and pushes changes if any formatting was needed
+- Uses `[skip ci]` in commit message to avoid infinite loops
+
+**Note:** Requires `contents: write` permission
+
+### 5. Documentation Build and Publish (`docs.yml`)
+**Trigger:** Automatic on push/PR, or manual with publish option
+
+Builds and optionally publishes Sphinx documentation:
+- **Automatic build**: Runs on every push to main/develop and on pull requests
+  - Verifies documentation builds without errors
+  - Uploads HTML artifacts for review (30-day retention)
+- **GitHub Pages publish**: 
+  - Automatic: Publishes to GitHub Pages on push to main branch
+  - Manual: Can be triggered via workflow_dispatch with publish option
+- Documentation available at: `https://<username>.github.io/<repo>/`
+
+**To manually trigger and publish:**
+1. Go to Actions tab
+2. Select "Documentation"
+3. Click "Run workflow"
+4. Check "Publish documentation to GitHub Pages"
+5. Click "Run workflow"
+
+**Setup GitHub Pages:**
+1. Go to Repository Settings → Pages
+2. Source: GitHub Actions
+3. Documentation will be published at your GitHub Pages URL
+
+**Local documentation build:**
+```bash
+cd docs
+pip install -r requirements.txt
+make html
+# Open build/html/index.html in browser
+```
+
 ## Code Formatting
 
 To format code locally before pushing:
