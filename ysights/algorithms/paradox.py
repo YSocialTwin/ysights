@@ -1,3 +1,63 @@
+"""
+Visibility Paradox Analysis
+============================
+
+This module provides functions for analyzing the visibility paradox in social networks.
+The visibility paradox describes situations where content created by agents receives
+asymmetric visibility compared to content they see from their neighbors.
+
+The module includes:
+- Visibility paradox detection and statistical significance testing
+- Comparison of user visibility vs. neighbor visibility
+- Population-size effects on the paradox
+- Null model generation for hypothesis testing
+
+Key Concepts:
+    The visibility paradox occurs when there's an imbalance between:
+    1. How much of your neighbors' content you see (inbound recommendations)
+    2. How much your neighbors see your content (outbound visibility)
+    
+    This can lead to situations where most users feel their content is under-represented
+    in their neighbors' feeds, even though the aggregate statistics might suggest balance.
+
+Example:
+    Detecting the visibility paradox::
+
+        from ysights import YDataHandler
+        from ysights.algorithms.paradox import visibility_paradox, user_visibility_vs_neighbors
+        
+        # Initialize data handler and extract network
+        ydh = YDataHandler('path/to/database.db')
+        network = ydh.social_network()
+        
+        # Calculate visibility paradox with statistical testing
+        paradox_results = visibility_paradox(ydh, network, N=100)
+        
+        print(f"Paradox score: {paradox_results['paradox_score']:.4f}")
+        print(f"Z-score: {paradox_results['z_score']:.4f}")
+        print(f"P-value: {paradox_results['p_value']:.4f}")
+        
+        if paradox_results['p_value'] < 0.05:
+            print("Visibility paradox detected (statistically significant)")
+        
+        # Compare user visibility with neighbor averages
+        user_vis, neighbor_vis = user_visibility_vs_neighbors(ydh, network)
+        
+        import numpy as np
+        print(f"Average user visibility: {np.mean(user_vis):.2f}")
+        print(f"Average neighbor visibility: {np.mean(neighbor_vis):.2f}")
+
+References:
+    The visibility paradox is related to concepts from:
+    - Friendship paradox (Feld, 1991)
+    - Attention inequality in social networks
+    - Filter bubble and echo chamber effects
+
+See Also:
+    :func:`visibility_paradox`: Main function for paradox detection
+    :func:`user_visibility_vs_neighbors`: Compare visibility metrics
+    :func:`visibility_paradox_population_size_null`: Analyze population size effects
+"""
 from ysights.models.YDataHandler import YDataHandler
 from collections import defaultdict
 import networkx as nx
