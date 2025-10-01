@@ -24,25 +24,25 @@ Example:
             topic_density_temporal_evolution,
             daily_contents_trends
         )
-        
+
         # Initialize data handler
         ydh = YDataHandler('path/to/database.db')
         network = ydh.social_network()
-        
+
         # Visualize paradox
         paradox_results = visibility_paradox(ydh, network, N=100)
         fig = paradox_histogram(paradox_results)
         fig.show()
-        
+
         # Visualize profile similarity
         similarities = profile_topics_similarity(ydh, network)
         fig = profile_similarity_distribution(similarities)
         fig.show()
-        
+
         # Visualize topic evolution
         fig = topic_density_temporal_evolution(ydh, min_days=15)
         fig.show()
-        
+
         # Show daily content trends
         fig = daily_contents_trends(ydh)
         fig.show()
@@ -55,6 +55,7 @@ See Also:
     - :mod:`ysights.algorithms`: Analysis algorithms that generate data for plots
     - :mod:`ysights.models`: Data models and database interface
 """
+
 from .paradox_viz import paradox_density_scatter, paradox_histogram, paradox_size_impact
 from .profiles_viz import (
     profile_similarity_distribution,

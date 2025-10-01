@@ -26,22 +26,22 @@ Example:
             trending_hashtags,
             trending_emotions
         )
-        
+
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Daily content trends
         fig = daily_contents_trends(ydh)
         fig.suptitle('Content Production Over Time')
         fig.show()
-        
+
         # Content distribution per user
         fig = contents_per_user_distributions(ydh)
         fig.show()
-        
+
         # Top 10 trending hashtags
         fig = trending_hashtags(ydh, top_n=10)
         fig.show()
-        
+
         # Emotion distribution
         fig = trending_emotions(ydh)
         fig.show()
@@ -50,6 +50,7 @@ See Also:
     - :mod:`ysights.viz.topics_viz`: Topic-specific visualizations
     - :mod:`ysights.viz.recommendations`: Recommendation system visualizations
 """
+
 import matplotlib.pyplot as plt
 from ysights.models.YDataHandler import YDataHandler
 from collections import defaultdict

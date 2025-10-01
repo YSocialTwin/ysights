@@ -16,15 +16,15 @@ Example:
     Basic usage of data models::
 
         from ysights.models import YDataHandler, Agent, Post
-        
+
         # Initialize data handler
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Get all agents
         agents = ydh.agents()
         for agent in agents.get_agents():
             print(f"Agent {agent.id}: {agent.username}")
-        
+
         # Get posts by agent with enrichment
         posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
         for post in posts.get_posts():
@@ -35,6 +35,7 @@ See Also:
     - :mod:`ysights.algorithms`: Analysis algorithms
     - :mod:`ysights.viz`: Visualization functions
 """
+
 from .Agents import Agent, Agents
 from .Posts import Post, Posts
 from .YDataHandler import YDataHandler

@@ -21,21 +21,21 @@ Example:
             profile_similarity_vs_degree,
             binned_similarity_per_degree
         )
-        
+
         ydh = YDataHandler('path/to/database.db')
         network = ydh.social_network()
-        
+
         # Calculate similarities
         similarities = profile_topics_similarity(ydh, network)
-        
+
         # Distribution plot
         fig = profile_similarity_distribution([similarities], ['All Users'])
         fig.show()
-        
+
         # Similarity vs degree
         fig = profile_similarity_vs_degree([similarities], [network], ['All Users'])
         fig.show()
-        
+
         # Binned by degree
         fig = binned_similarity_per_degree([similarities], [network], ['All Users'])
         fig.show()
@@ -44,6 +44,7 @@ See Also:
     - :func:`ysights.algorithms.profiles.profile_topics_similarity`: Calculate similarities
     - :mod:`ysights.viz.paradox_viz`: Paradox visualizations
 """
+
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import numpy as np

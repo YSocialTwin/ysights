@@ -37,12 +37,12 @@ class Agent:
         Creating an agent from a database row::
 
             from ysights.models.Agents import Agent
-            
+
             # Example database row
             row = (1, 'alice_smith', None, None, 'user', 'moderate', 32,
                    0.7, 0.6, 0.8, 0.5, 0.4, 0.5, 'en', None, 'college',
                    0, 0.5, 'female', 'USA', 0.1, False, None, 3.5, 'teacher')
-            
+
             agent = Agent(row)
             print(f"Agent ID: {agent.id}")
             print(f"Username: {agent.username}")
@@ -123,25 +123,25 @@ class Agents:
 
             from ysights import YDataHandler
             from ysights.models.Agents import Agents, Agent
-            
+
             # Create an agents collection
             agents = Agents()
-            
+
             # Add agents to the collection
             row1 = (1, 'alice', None, None, 'user', 'left', 25, 0.7, 0.6, 0.8, 0.5, 0.4,
                     0.5, 'en', None, 'college', 0, 0.5, 'female', 'USA', 0.1, False,
                     None, 3.5, 'teacher')
             agent1 = Agent(row1)
             agents.add_agent(agent1)
-            
+
             # Or retrieve from database
             ydh = YDataHandler('path/to/database.db')
             all_agents = ydh.agents()
-            
+
             # Get list of all agents
             agent_list = all_agents.get_agents()
             print(f"Total agents: {len(agent_list)}")
-            
+
             # Iterate through agents
             for agent in agent_list:
                 print(f"{agent.username}: {agent.role}")

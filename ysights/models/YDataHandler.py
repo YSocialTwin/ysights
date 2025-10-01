@@ -31,24 +31,24 @@ class YDataHandler:
         Basic usage of YDataHandler::
 
             from ysights import YDataHandler
-            
+
             # Initialize handler with database path
             ydh = YDataHandler('path/to/simulation_data.db')
-            
+
             # Get time range of simulation
             time_info = ydh.time_range()
             print(f"Simulation runs from round {time_info['min_round']} to {time_info['max_round']}")
-            
+
             # Get all agents
             agents = ydh.agents()
             print(f"Total agents: {len(agents.get_agents())}")
-            
+
             # Get posts by specific agent with enriched data
             agent_posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
             for post in agent_posts.get_posts():
                 print(f"Post: {post.text}")
                 print(f"Sentiment: {post.sentiment}")
-            
+
             # Extract social network
             network = ydh.social_network(from_round=0, to_round=100)
             print(f"Network has {network.number_of_nodes()} nodes and {network.number_of_edges()} edges")
@@ -183,11 +183,11 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Execute custom query
             results = ydh.custom_query("SELECT COUNT(*) FROM post WHERE round < 100")
             print(f"Posts in first 100 rounds: {results[0][0]}")
-            
+
             # More complex query
             query = '''
                 SELECT u.username, COUNT(p.id) as post_count
@@ -223,7 +223,7 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             time_info = ydh.time_range()
             print(f"Simulation starts at round: {time_info['min_round']}")
             print(f"Simulation ends at round: {time_info['max_round']}")
@@ -250,10 +250,10 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             time_info = ydh.round_to_time(round_id=250)
             print(f"Round 250 occurred on day {time_info['day']} at hour {time_info['hour']}")
-            
+
             # Converting multiple rounds
             for round_id in [100, 200, 300]:
                 time = ydh.round_to_time(round_id)
@@ -282,11 +282,11 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get round ID for day 10, hour 5
             round_id = ydh.time_to_round(day=10, hour=5)
             print(f"Day 10, Hour 5 is round {round_id}")
-            
+
             # Get round ID for start of day 5
             round_id = ydh.time_to_round(day=5)
             print(f"Day 5 starts at round {round_id}")
@@ -310,7 +310,7 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             agent_count = ydh.number_of_agents()
             print(f"Total agents in simulation: {agent_count}")
         """
@@ -332,10 +332,10 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             agents = ydh.agents()
             print(f"Total agents: {len(agents.get_agents())}")
-            
+
             # Analyze agent demographics
             for agent in agents.get_agents():
                 print(f"Agent {agent.id}: {agent.username}")
@@ -373,17 +373,17 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get all agents with left-leaning political orientation
             left_agents = ydh.agents_by_feature('leaning', 'left')
             print(f"Left-leaning agents: {len(left_agents.get_agents())}")
-            
+
             # Get all female agents
             female_agents = ydh.agents_by_feature('gender', 'female')
-            
+
             # Get all agents with college education
             college_agents = ydh.agents_by_feature('education', 'college')
-            
+
             for agent in college_agents.get_agents():
                 print(f"{agent.username} - {agent.profession}")
 
@@ -415,10 +415,10 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             mapping = ydh.agent_mapping()
             print(f"Agent 5's username: {mapping[5]}")
-            
+
             # Use mapping to display usernames in analysis
             post_counts = {}  # hypothetical post count data
             for agent_id, count in post_counts.items():
@@ -445,7 +445,7 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             post_ids = ydh.agent_post_ids(agent_id=5)
             print(f"Agent 5 created {len(post_ids)} posts")
             print(f"Post IDs: {list(post_ids.keys())}")
@@ -476,10 +476,10 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             posts = ydh.posts()
             print(f"Total posts in simulation: {len(posts.get_posts())}")
-            
+
             # Analyze post distribution
             rounds = [post.round for post in posts.get_posts()]
             print(f"Posts range from round {min(rounds)} to {max(rounds)}")
@@ -518,7 +518,7 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get posts with full enrichment
             posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['all'])
             for post in posts.get_posts():
@@ -526,10 +526,10 @@ class YDataHandler:
                 print(f"Sentiment: {post.sentiment}")
                 print(f"Hashtags: {post.hashtags}")
                 print(f"Topics: {post.topics}")
-            
+
             # Get posts with selective enrichment (faster)
             posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
-            
+
             # Get posts without enrichment
             posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=[])
 
@@ -562,10 +562,10 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             agent_id = ydh.agent_id_by_post_id(post_id=123)
             print(f"Post 123 was created by agent {agent_id}")
-            
+
             # Get username of post author
             mapping = ydh.agent_mapping()
             username = mapping[agent_id]
@@ -600,14 +600,14 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get all recommendations for agent 5
             recs = ydh.agent_recommendations(agent_id=5)
             print(f"Agent 5 received {len(recs)} unique post recommendations")
-            
+
             for user_post, count in recs.items():
                 print(f"Post {user_post.post_id} by agent {user_post.agent_id}: {count} times")
-            
+
             # Get recommendations in specific time range
             recs = ydh.agent_recommendations(agent_id=5, from_round=100, to_round=200)
             print(f"Recommendations in rounds 100-200: {len(recs)}")
@@ -658,19 +658,19 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             # First get overall recommendation stats
             rec_stats = ydh.recommendations_per_post()
-            
+
             # Then get visibility for specific agent
             visibility = ydh.agent_posts_visibility(agent_id=5, rec_stats=rec_stats)
             print(f"Agent 5's post visibility:")
             for post_id, count in visibility.items():
                 print(f"  Post {post_id} was recommended {count} times")
-            
+
             # Get visibility in specific time range
             visibility = ydh.agent_posts_visibility(
-                agent_id=5, rec_stats=rec_stats, 
+                agent_id=5, rec_stats=rec_stats,
                 from_round=100, to_round=200
             )
 
@@ -704,15 +704,15 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             rec_stats = ydh.recommendations_per_post()
-            
+
             # Find most recommended posts
             sorted_posts = sorted(rec_stats.items(), key=lambda x: x[1], reverse=True)
             print("Top 10 most recommended posts:")
             for post_id, count in sorted_posts[:10]:
                 print(f"  Post {post_id}: {count} recommendations")
-            
+
             # Use for visibility analysis
             visibility = ydh.agent_posts_visibility(agent_id=5, rec_stats=rec_stats)
 
@@ -750,14 +750,14 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             post_recs, user_reading_history = ydh.recommendations_per_post_per_user()
-            
+
             # Analyze post popularity
             print("Most recommended posts:")
             for post_id, count in sorted(post_recs.items(), key=lambda x: x[1], reverse=True)[:5]:
                 print(f"  Post {post_id}: {count} recommendations")
-            
+
             # Analyze user reading patterns
             user_id = 5
             posts_seen = user_reading_history[user_id]
@@ -808,12 +808,12 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             reactions = ydh.agent_reactions(agent_id=5)
             print(f"Agent 5's reactions:")
             for reaction_type, post_ids in reactions.items():
                 print(f"  {reaction_type}: {len(post_ids)} posts")
-            
+
             # Reactions in specific time range
             reactions = ydh.agent_reactions(agent_id=5, from_round=100, to_round=200)
             like_count = len(reactions.get('like', []))
@@ -856,12 +856,12 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             hashtags = ydh.agent_hashtags(agent_id=5)
             print("Agent 5's most used hashtags:")
             for tag, count in sorted(hashtags.items(), key=lambda x: x[1], reverse=True)[:10]:
                 print(f"  #{tag}: {count} times")
-            
+
             # Hashtags in specific period
             recent_tags = ydh.agent_hashtags(agent_id=5, from_round=500, to_round=1000)
             print(f"Used {len(recent_tags)} different hashtags in rounds 500-1000")
@@ -904,16 +904,16 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             interests = ydh.agent_interests(agent_id=5)
             print("Agent 5's interest profile:")
             for interest, count in sorted(interests.items(), key=lambda x: x[1], reverse=True):
                 print(f"  {interest}: {count}")
-            
+
             # Track interest evolution
             early_interests = ydh.agent_interests(agent_id=5, from_round=0, to_round=500)
             late_interests = ydh.agent_interests(agent_id=5, from_round=500, to_round=1000)
-            
+
             new_interests = set(late_interests.keys()) - set(early_interests.keys())
             print(f"New interests acquired: {new_interests}")
 
@@ -955,16 +955,16 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             emotions = ydh.agent_emotions(agent_id=5)
             print("Agent 5's emotional expression:")
             for emotion, count in sorted(emotions.items(), key=lambda x: x[1], reverse=True):
                 print(f"  {emotion}: {count} posts")
-            
+
             # Compare emotional states over time
             early_emotions = ydh.agent_emotions(agent_id=5, from_round=0, to_round=500)
             late_emotions = ydh.agent_emotions(agent_id=5, from_round=500, to_round=1000)
-            
+
             joy_change = late_emotions.get('joy', 0) - early_emotions.get('joy', 0)
             print(f"Change in joy expression: {joy_change}")
 
@@ -1007,19 +1007,19 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
-            
+
             toxicity_data = ydh.agent_toxicity(agent_id=5)
             print(f"Agent 5 toxicity analysis over {len(toxicity_data)} posts:")
-            
+
             # Calculate average toxicity
             if toxicity_data:
                 avg_tox = sum(p['toxicity'] for p in toxicity_data) / len(toxicity_data)
                 print(f"Average toxicity: {avg_tox:.3f}")
-                
+
                 # Check for specific toxic behaviors
                 high_profanity = [p for p in toxicity_data if p['profanity'] > 0.7]
                 print(f"Posts with high profanity: {len(high_profanity)}")
-            
+
             # Compare toxicity over time periods
             early_tox = ydh.agent_toxicity(agent_id=5, from_round=0, to_round=500)
             late_tox = ydh.agent_toxicity(agent_id=5, from_round=500, to_round=1000)
@@ -1079,14 +1079,14 @@ class YDataHandler:
 
             import networkx as nx
             from ysights import YDataHandler
-            
+
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get follower network for agent 5
             follower_net = ydh.ego_network_follower(agent_id=5)
             print(f"Agent 5 has {follower_net.number_of_nodes() - 1} followers")
             print(f"Follower IDs: {list(follower_net.successors(5))}")
-            
+
             # Get follower network in specific time period
             recent_followers = ydh.ego_network_follower(agent_id=5, from_round=500, to_round=1000)
 
@@ -1143,14 +1143,14 @@ class YDataHandler:
 
             import networkx as nx
             from ysights import YDataHandler
-            
+
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get following network for agent 5
             following_net = ydh.ego_network_following(agent_id=5)
             print(f"Agent 5 follows {following_net.number_of_nodes() - 1} accounts")
             print(f"Following IDs: {list(following_net.predecessors(5))}")
-            
+
             # Compare early vs late following behavior
             early = ydh.ego_network_following(agent_id=5, from_round=0, to_round=500)
             late = ydh.ego_network_following(agent_id=5, from_round=500, to_round=1000)
@@ -1210,19 +1210,19 @@ class YDataHandler:
 
             import networkx as nx
             from ysights import YDataHandler
-            
+
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get complete ego network for agent 5
             ego_net = ydh.ego_network(agent_id=5)
             print(f"Agent 5's ego network has {ego_net.number_of_nodes()} nodes")
             print(f"Edges: {ego_net.number_of_edges()}")
-            
+
             # Analyze network structure
             in_degree = ego_net.in_degree(5)  # Number of followers
             out_degree = ego_net.out_degree(5)  # Number following
             print(f"Followers: {in_degree}, Following: {out_degree}")
-            
+
             # Get ego network for specific time period
             period_net = ydh.ego_network(agent_id=5, from_round=100, to_round=500)
 
@@ -1261,25 +1261,25 @@ class YDataHandler:
             import networkx as nx
             from ysights import YDataHandler
             import matplotlib.pyplot as plt
-            
+
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get complete social network
             social_net = ydh.social_network()
             print(f"Social network: {social_net.number_of_nodes()} nodes, {social_net.number_of_edges()} edges")
-            
+
             # Analyze network properties
             density = nx.density(social_net)
             print(f"Network density: {density:.4f}")
-            
+
             # Get network for specific agents
             agent_subset = [1, 2, 3, 5, 8, 13, 21]
             subnet = ydh.social_network(agent_ids=agent_subset)
-            
+
             # Get network for specific time period
             early_net = ydh.social_network(from_round=0, to_round=500)
             late_net = ydh.social_network(from_round=500, to_round=1000)
-            
+
             # Compare network evolution
             print(f"Early network: {early_net.number_of_edges()} edges")
             print(f"Late network: {late_net.number_of_edges()} edges")
@@ -1329,18 +1329,18 @@ class YDataHandler:
 
             import networkx as nx
             from ysights import YDataHandler
-            
+
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get mention network for agent 5
             mention_net = ydh.mention_ego_network(agent_id=5)
             print(f"Agent 5 has mentioned {mention_net.number_of_nodes() - 1} different agents")
-            
+
             # Analyze mention patterns
             for target in mention_net.successors(5):
                 weight = mention_net[5][target]['weight']
                 print(f"  Mentioned agent {target}: {weight} times")
-            
+
             # Compare mention patterns over time
             early_mentions = ydh.mention_ego_network(agent_id=5, from_round=0, to_round=500)
             late_mentions = ydh.mention_ego_network(agent_id=5, from_round=500, to_round=1000)
@@ -1388,24 +1388,24 @@ class YDataHandler:
 
             import networkx as nx
             from ysights import YDataHandler
-            
+
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Get complete mention network
             mention_net = ydh.mention_network()
             print(f"Mention network: {mention_net.number_of_nodes()} nodes, {mention_net.number_of_edges()} edges")
-            
+
             # Find most mentioned agents
             in_degrees = dict(mention_net.in_degree(weight='weight'))
             top_mentioned = sorted(in_degrees.items(), key=lambda x: x[1], reverse=True)[:5]
             print("Most mentioned agents:")
             for agent_id, mention_count in top_mentioned:
                 print(f"  Agent {agent_id}: mentioned {mention_count} times")
-            
+
             # Get mention network for subset
             agent_subset = [1, 2, 3, 5, 8]
             subnet = ydh.mention_network(agent_ids=agent_subset)
-            
+
             # Compare mention patterns over time
             early = ydh.mention_network(from_round=0, to_round=500)
             late = ydh.mention_network(from_round=500, to_round=1000)

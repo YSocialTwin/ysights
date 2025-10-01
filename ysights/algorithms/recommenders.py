@@ -15,23 +15,24 @@ Example:
 
         from ysights import YDataHandler
         from ysights.algorithms.recommenders import engagement_momentum, personalization_balance_score
-        
+
         # Initialize data handler
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Calculate engagement momentum for posts
         momentum = engagement_momentum(ydh, time_window_rounds=24)
-        
+
         # Analyze top posts by momentum
         top_posts = sorted(momentum.items(), key=lambda x: x[1], reverse=True)[:10]
         for post_id, score in top_posts:
             print(f"Post {post_id}: momentum score {score:.2f}")
-        
+
         # Calculate personalization balance for users
         balance = personalization_balance_score(ydh, time_window_rounds=24, alpha=0.5)
         avg_balance = sum(balance.values()) / len(balance)
         print(f"Average personalization balance: {avg_balance:.3f}")
 """
+
 from ysights import YDataHandler
 from collections import defaultdict
 import math
@@ -269,9 +270,9 @@ def sentiment_diffusion_metrics(YDH: YDataHandler):
 
         from ysights import YDataHandler
         from ysights.algorithms.recommenders import sentiment_diffusion_metrics
-        
+
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Calculate sentiment diffusion (function to be implemented)
         # diffusion = sentiment_diffusion_metrics(ydh)
         # print(f"Positive sentiment spread rate: {diffusion['positive']}")

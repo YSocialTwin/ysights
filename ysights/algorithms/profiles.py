@@ -11,18 +11,19 @@ Example:
 
         from ysights import YDataHandler
         from ysights.algorithms.profiles import profile_topics_similarity
-        
+
         # Initialize data handler and extract network
         ydh = YDataHandler('path/to/database.db')
         network = ydh.social_network()
-        
+
         # Calculate interest similarity between neighbors
         similarities = profile_topics_similarity(ydh, network, limit=2)
-        
+
         # Analyze results
         for agent_id, similarity_score in similarities.items():
             print(f"Agent {agent_id} has {similarity_score:.2%} interest overlap with neighbors")
 """
+
 from collections import defaultdict
 from ysights.models.YDataHandler import YDataHandler
 
@@ -59,24 +60,24 @@ def profile_topics_similarity(
         from ysights import YDataHandler
         from ysights.algorithms.profiles import profile_topics_similarity
         import networkx as nx
-        
+
         # Initialize data handler and extract social network
         ydh = YDataHandler('path/to/database.db')
         network = ydh.social_network()
-        
+
         # Calculate similarity for all agents
         similarities = profile_topics_similarity(ydh, network, limit=2)
-        
+
         # Find agents with high neighbor similarity
         high_similarity = {k: v for k, v in similarities.items() if v > 0.7}
         print(f"{len(high_similarity)} agents have >70% interest overlap with neighbors")
-        
+
         # Calculate for specific time period
-        early_sim = profile_topics_similarity(ydh, network, limit=2, 
+        early_sim = profile_topics_similarity(ydh, network, limit=2,
                                              from_round=0, to_round=500)
         late_sim = profile_topics_similarity(ydh, network, limit=2,
                                             from_round=500, to_round=1000)
-        
+
         # Compare evolution
         for agent_id in early_sim:
             if agent_id in late_sim:
@@ -85,7 +86,7 @@ def profile_topics_similarity(
                     print(f"Agent {agent_id} similarity changed by {change:.2%}")
 
     Note:
-        - Interests are normalized per agent, so agents with many posts don't 
+        - Interests are normalized per agent, so agents with many posts don't
           dominate the similarity calculation
         - The `limit` parameter helps focus on significant interests by filtering
           out occasional or accidental topic matches

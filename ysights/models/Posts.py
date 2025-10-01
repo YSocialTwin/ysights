@@ -36,20 +36,20 @@ class Post:
 
             from ysights.models.Posts import Post
             from ysights import YDataHandler
-            
+
             # Example database row
             row = (123, 'Hello world! #greeting', None, 5, None, 1, 10, None, None, None)
             post = Post(row)
-            
+
             print(f"Post ID: {post.id}")
             print(f"Text: {post.text}")
             print(f"Author: {post.user_id}")
-            
+
             # Enrich post with additional data from database
             # (requires database cursor)
             ydh = YDataHandler('path/to/database.db')
             posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
-            
+
             for post in posts.get_posts():
                 print(f"Sentiment: {post.sentiment}")
                 print(f"Hashtags: {post.hashtags}")
@@ -103,15 +103,15 @@ class Post:
         Example::
 
             from ysights import YDataHandler
-            
+
             ydh = YDataHandler('path/to/database.db')
-            
+
             # Enrich with specific dimensions
             posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
-            
+
             # Or enrich with all available data
             all_posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['all'])
-            
+
             for post in all_posts.get_posts():
                 print(f"Sentiment: {post.sentiment}")
                 print(f"Topics: {post.topics}")
@@ -315,23 +315,23 @@ class Posts:
 
             from ysights import YDataHandler
             from ysights.models.Posts import Posts, Post
-            
+
             # Create a posts collection
             posts = Posts()
-            
+
             # Add posts manually
             row = (1, 'Hello world!', None, 5, None, 1, 10, None, None, None)
             post = Post(row)
             posts.add_post(post)
-            
+
             # Or retrieve posts from database
             ydh = YDataHandler('path/to/database.db')
             agent_posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment'])
-            
+
             # Get list of all posts
             post_list = agent_posts.get_posts()
             print(f"Total posts: {len(post_list)}")
-            
+
             # Iterate through posts
             for post in post_list:
                 print(f"Post {post.id}: {post.text[:50]}...")

@@ -8,7 +8,7 @@ and when engagement peaks occur.
 
 The module is currently under development and contains placeholder functions for:
 - Topic spread analysis
-- Adoption rate calculations  
+- Adoption rate calculations
 - Peak engagement time detection
 
 Example:
@@ -16,16 +16,17 @@ Example:
 
         from ysights import YDataHandler
         from ysights.algorithms import topics
-        
+
         # Initialize data handler
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Analyze topic spread (to be implemented)
         # spread = topics.topic_spread(ydh)
-        
+
         # Calculate adoption rates (to be implemented)
         # rates = topics.adoption_rate(ydh)
 """
+
 from ysights import YDataHandler
 
 
@@ -45,9 +46,9 @@ def topic_spread(YDH: YDataHandler):
 
         from ysights import YDataHandler
         from ysights.algorithms.topics import topic_spread
-        
+
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Analyze topic spread (function to be implemented)
         # results = topic_spread(ydh)
 
@@ -78,9 +79,9 @@ def adoption_rate(YDH: YDataHandler):
 
         from ysights import YDataHandler
         from ysights.algorithms.topics import adoption_rate
-        
+
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Calculate adoption rates (function to be implemented)
         # rates = adoption_rate(ydh)
         # print(f"Average adoption rate: {rates}")
@@ -112,9 +113,9 @@ def peak_engagement_time(YDH: YDataHandler):
 
         from ysights import YDataHandler
         from ysights.algorithms.topics import peak_engagement_time
-        
+
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Find peak engagement times (function to be implemented)
         # peaks = peak_engagement_time(ydh)
         # for topic, peak_time in peaks.items():

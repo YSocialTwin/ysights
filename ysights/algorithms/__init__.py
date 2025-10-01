@@ -21,18 +21,18 @@ Example:
             visibility_paradox,
             engagement_momentum
         )
-        
+
         # Initialize data handler
         ydh = YDataHandler('path/to/database.db')
         network = ydh.social_network()
-        
+
         # Analyze profile similarity
         similarities = profile_topics_similarity(ydh, network)
-        
+
         # Detect visibility paradox
         paradox = visibility_paradox(ydh, network, N=100)
         print(f"Paradox detected: {paradox['p_value'] < 0.05}")
-        
+
         # Calculate engagement momentum
         momentum = engagement_momentum(ydh, time_window_rounds=24)
 
@@ -40,8 +40,13 @@ See Also:
     - :mod:`ysights.models`: Data models and database interface
     - :mod:`ysights.viz`: Visualization functions
 """
+
 from .profiles import profile_topics_similarity
-from .paradox import visibility_paradox, user_visibility_vs_neighbors, visibility_paradox_population_size_null
+from .paradox import (
+    visibility_paradox,
+    user_visibility_vs_neighbors,
+    visibility_paradox_population_size_null,
+)
 from .recommenders import (
     engagement_momentum,
     personalization_balance_score,

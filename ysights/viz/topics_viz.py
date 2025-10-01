@@ -14,13 +14,13 @@ Example:
 
         from ysights import YDataHandler
         from ysights.viz import topic_density_temporal_evolution
-        
+
         ydh = YDataHandler('path/to/database.db')
-        
+
         # Visualize all topics over time
         fig = topic_density_temporal_evolution(ydh, min_days=15)
         fig.show()
-        
+
         # Filter by user leaning
         fig_left = topic_density_temporal_evolution(ydh, min_days=10, leaning='left')
         fig_left.update_layout(title="Topics: Left-leaning Users")
@@ -30,6 +30,7 @@ See Also:
     - :mod:`ysights.algorithms.topics`: Topic analysis algorithms
     - :mod:`ysights.viz.global_trends`: Aggregate trend visualizations
 """
+
 import numpy as np
 import pandas as pd
 import plotly.express as px
