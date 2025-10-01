@@ -1,3 +1,55 @@
+"""
+Global Trends Visualization Functions
+======================================
+
+This module provides visualization functions for aggregate statistics and
+trends across the entire YSocial simulation. It includes functions for
+analyzing content creation, user activity, reactions, hashtags, emotions,
+topics, and engagement patterns over time.
+
+Functions:
+    - daily_contents_trends: Posts, articles, shares, and comments per day
+    - contents_per_user_distributions: Distribution of content creation per user
+    - daily_reactions_trends: Reactions distribution over time
+    - trending_hashtags: Most popular hashtags
+    - trending_emotions: Most expressed emotions
+    - tending_topics: Most discussed topics
+    - comments_per_post_distribution: Distribution of comment counts
+
+Example:
+    Visualizing global trends::
+
+        from ysights import YDataHandler
+        from ysights.viz import (
+            daily_contents_trends,
+            contents_per_user_distributions,
+            trending_hashtags,
+            trending_emotions
+        )
+        
+        ydh = YDataHandler('path/to/database.db')
+        
+        # Daily content trends
+        fig = daily_contents_trends(ydh)
+        fig.suptitle('Content Production Over Time')
+        fig.show()
+        
+        # Content distribution per user
+        fig = contents_per_user_distributions(ydh)
+        fig.show()
+        
+        # Top 10 trending hashtags
+        fig = trending_hashtags(ydh, top_n=10)
+        fig.show()
+        
+        # Emotion distribution
+        fig = trending_emotions(ydh)
+        fig.show()
+
+See Also:
+    - :mod:`ysights.viz.topics_viz`: Topic-specific visualizations
+    - :mod:`ysights.viz.recommendations`: Recommendation system visualizations
+"""
 import matplotlib.pyplot as plt
 from ysights.models.YDataHandler import YDataHandler
 from collections import defaultdict

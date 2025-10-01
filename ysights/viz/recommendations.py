@@ -1,3 +1,44 @@
+"""
+Recommendation System Visualization Functions
+==============================================
+
+This module provides visualization functions for analyzing recommendation
+system behavior in YSocial simulations. It helps visualize recommendation
+distributions, correlations with engagement metrics, and system balance.
+
+Functions:
+    - recommendations_per_post_distribution: Distribution of recommendation counts
+    - recommendations_vs_reactions: Correlation between recommendations and reactions
+    - recommendations_vs_comments: Correlation between recommendations and comments
+
+Example:
+    Visualizing recommendation patterns::
+
+        from ysights import YDataHandler
+        from ysights.viz import (
+            recommendations_per_post_distribution,
+            recommendations_vs_reactions,
+            recommendations_vs_comments
+        )
+        
+        ydh = YDataHandler('path/to/database.db')
+        
+        # Distribution of recommendations
+        fig = recommendations_per_post_distribution(ydh)
+        fig.show()
+        
+        # Recommendations vs reactions
+        fig = recommendations_vs_reactions(ydh)
+        fig.show()
+        
+        # Recommendations vs comments
+        fig = recommendations_vs_comments(ydh)
+        fig.show()
+
+See Also:
+    - :mod:`ysights.algorithms.recommenders`: Recommendation system metrics
+    - :mod:`ysights.viz.global_trends`: Global content trends
+"""
 import matplotlib.pyplot as plt
 from ysights.models.YDataHandler import YDataHandler
 from collections import defaultdict

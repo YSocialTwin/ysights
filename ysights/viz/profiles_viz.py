@@ -1,3 +1,49 @@
+"""
+Profile Visualization Functions
+================================
+
+This module provides visualization functions for analyzing agent profile
+similarity within social networks. It helps visualize how agent interests
+align with their network neighbors and how this varies with network position.
+
+Functions:
+    - profile_similarity_distribution: Histogram of similarity values
+    - profile_similarity_vs_degree: Scatter plot of similarity vs. node degree
+    - binned_similarity_per_degree: Box plots of similarity by degree bins
+
+Example:
+    Visualizing profile similarity::
+
+        from ysights import YDataHandler
+        from ysights.algorithms import profile_topics_similarity
+        from ysights.viz import (
+            profile_similarity_distribution,
+            profile_similarity_vs_degree,
+            binned_similarity_per_degree
+        )
+        
+        ydh = YDataHandler('path/to/database.db')
+        network = ydh.social_network()
+        
+        # Calculate similarities
+        similarities = profile_topics_similarity(ydh, network)
+        
+        # Distribution plot
+        fig = profile_similarity_distribution([similarities], ['All Users'])
+        fig.show()
+        
+        # Similarity vs degree
+        fig = profile_similarity_vs_degree([similarities], [network], ['All Users'])
+        fig.show()
+        
+        # Binned by degree
+        fig = binned_similarity_per_degree([similarities], [network], ['All Users'])
+        fig.show()
+
+See Also:
+    - :func:`ysights.algorithms.profiles.profile_topics_similarity`: Calculate similarities
+    - :mod:`ysights.viz.paradox_viz`: Paradox visualizations
+"""
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import numpy as np

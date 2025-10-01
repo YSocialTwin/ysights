@@ -1,3 +1,49 @@
+"""
+Paradox Visualization Functions
+================================
+
+This module provides visualization functions for the visibility paradox analysis.
+It includes density scatter plots, histograms, and population size effect visualizations
+to help understand asymmetries in content visibility within social networks.
+
+Functions:
+    - paradox_density_scatter: 2D density scatter plot comparing user and neighbor visibility
+    - paradox_histogram: Distribution of paradox scores across users
+    - paradox_size_impact: Line plots showing how paradox varies with population fraction
+
+Example:
+    Visualizing the visibility paradox::
+
+        from ysights import YDataHandler
+        from ysights.algorithms import visibility_paradox, user_visibility_vs_neighbors
+        from ysights.viz import paradox_density_scatter, paradox_histogram
+        
+        ydh = YDataHandler('path/to/database.db')
+        network = ydh.social_network()
+        
+        # Get visibility data
+        user_vis, neighbor_vis = user_visibility_vs_neighbors(ydh, network)
+        
+        # Density scatter plot
+        fig = paradox_density_scatter(
+            user_vis, neighbor_vis,
+            xlabel='User Impressions',
+            ylabel='Avg Neighbor Impressions',
+            title='Visibility Paradox'
+        )
+        fig.show()
+        
+        # Calculate full paradox with statistics
+        paradox_results = visibility_paradox(ydh, network, N=100)
+        
+        # Histogram of paradox scores
+        fig = paradox_histogram(paradox_results, bins=50)
+        fig.show()
+
+See Also:
+    - :func:`ysights.algorithms.paradox.visibility_paradox`: Calculate paradox metrics
+    - :func:`ysights.algorithms.paradox.user_visibility_vs_neighbors`: Get visibility data
+"""
 import numpy as np
 from scipy.stats import gaussian_kde, alpha
 import matplotlib.pyplot as plt
