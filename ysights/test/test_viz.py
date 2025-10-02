@@ -1,15 +1,19 @@
-import unittest
 import os
-from matplotlib import pyplot as plt
+import unittest
+
 import plotly
-from ysights import algorithms, viz, YDataHandler
+from matplotlib import pyplot as plt
+
+from ysights import YDataHandler, algorithms, viz
 
 
 class VizTestCase(unittest.TestCase):
     @staticmethod
     def get_data_handler():
         # Assuming the database file exists at this path
-        db_path = f"{os.sep}example_data{os.sep}RC_ER_database_server.db"#ysocial_db.db"
+        db_path = (
+            f"{os.sep}example_data{os.sep}RC_ER_database_server.db"  # ysocial_db.db"
+        )
 
         current_path = os.getcwd().split("ysights")[0] + "ysights" + db_path
 
@@ -38,10 +42,12 @@ class VizTestCase(unittest.TestCase):
         handler = self.get_data_handler()
         network = handler.social_network()
 
-        results = algorithms.visibility_paradox_population_size_null(handler,
-                                                                     network,
-                                                                     N=30,
-                                                                     subject_to_rec=[.001, .005, .01, .05, .1, .25, .5, .75, .95])
+        results = algorithms.visibility_paradox_population_size_null(
+            handler,
+            network,
+            N=30,
+            subject_to_rec=[0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.95],
+        )
 
         pl = viz.paradox_size_impact(results)
         self.assertIsInstance(pl, plt.Figure)

@@ -1,10 +1,73 @@
-from ysights.models.YDataHandler import YDataHandler
+"""
+Visibility Paradox Analysis
+============================
+
+This module provides functions for analyzing the visibility paradox in social networks.
+The visibility paradox describes situations where content created by agents receives
+asymmetric visibility compared to content they see from their neighbors.
+
+The module includes:
+- Visibility paradox detection and statistical significance testing
+- Comparison of user visibility vs. neighbor visibility
+- Population-size effects on the paradox
+- Null model generation for hypothesis testing
+
+Key Concepts:
+    The visibility paradox occurs when there's an imbalance between:
+    1. How much of your neighbors' content you see (inbound recommendations)
+    2. How much your neighbors see your content (outbound visibility)
+
+    This can lead to situations where most users feel their content is under-represented
+    in their neighbors' feeds, even though the aggregate statistics might suggest balance.
+
+Example:
+    Detecting the visibility paradox::
+
+        from ysights import YDataHandler
+        from ysights.algorithms.paradox import visibility_paradox, user_visibility_vs_neighbors
+
+        # Initialize data handler and extract network
+        ydh = YDataHandler('path/to/database.db')
+        network = ydh.social_network()
+
+        # Calculate visibility paradox with statistical testing
+        paradox_results = visibility_paradox(ydh, network, N=100)
+
+        print(f"Paradox score: {paradox_results['paradox_score']:.4f}")
+        print(f"Z-score: {paradox_results['z_score']:.4f}")
+        print(f"P-value: {paradox_results['p_value']:.4f}")
+
+        if paradox_results['p_value'] < 0.05:
+            print("Visibility paradox detected (statistically significant)")
+
+        # Compare user visibility with neighbor averages
+        user_vis, neighbor_vis = user_visibility_vs_neighbors(ydh, network)
+
+        import numpy as np
+        print(f"Average user visibility: {np.mean(user_vis):.2f}")
+        print(f"Average neighbor visibility: {np.mean(neighbor_vis):.2f}")
+
+References:
+    The visibility paradox is related to concepts from:
+    - Friendship paradox (Feld, 1991)
+    - Attention inequality in social networks
+    - Filter bubble and echo chamber effects
+
+See Also:
+    :func:`visibility_paradox`: Main function for paradox detection
+    :func:`user_visibility_vs_neighbors`: Compare visibility metrics
+    :func:`visibility_paradox_population_size_null`: Analyze population size effects
+"""
+
+import random
 from collections import defaultdict
+
 import networkx as nx
 import numpy as np
-from scipy.stats import norm
-import random
 import tqdm
+from scipy.stats import norm
+
+from ysights.models.YDataHandler import YDataHandler
 
 
 def __stratified_node_sampling_by_degree_bins(G, percentage, seed=None, bins=None):
@@ -30,7 +93,9 @@ def __stratified_node_sampling_by_degree_bins(G, percentage, seed=None, bins=Non
     # Define bins (logarithmic by default)
     if bins is None:
         max_deg = max(degree_values)
-        bins = np.unique(np.logspace(0, np.log10(max_deg + 1), num=5, dtype=int))  # e.g., 4 bins
+        bins = np.unique(
+            np.logspace(0, np.log10(max_deg + 1), num=5, dtype=int)
+        )  # e.g., 4 bins
 
     # Group nodes by bin
     bin_to_nodes = defaultdict(list)
@@ -53,7 +118,9 @@ def __stratified_node_sampling_by_degree_bins(G, percentage, seed=None, bins=Non
     # Adjust to match target size exactly (optional)
     if len(sampled_nodes) < total_target:
         remaining = list(set(G.nodes()) - sampled_nodes)
-        sampled_nodes.update(random.sample(remaining, total_target - len(sampled_nodes)))
+        sampled_nodes.update(
+            random.sample(remaining, total_target - len(sampled_nodes))
+        )
     elif len(sampled_nodes) > total_target:
         sampled_nodes = set(random.sample(list(sampled_nodes), total_target))
 
@@ -89,7 +156,12 @@ def __generate_randomized_mappings(original_dict, N, seed=None, x=1.0, g=None):
         # static_users = set(users) - randomized_users
 
         # Extract only posts from randomized users
-        randomized_posts = [post for user in randomized_users if user in original_dict for post in original_dict[user]]
+        randomized_posts = [
+            post
+            for user in randomized_users
+            if user in original_dict
+            for post in original_dict[user]
+        ]
 
         random.shuffle(randomized_posts)
         shuffled_posts = iter(randomized_posts)
@@ -231,7 +303,7 @@ def __z_test_two_distributions(x, y):
     n_x = len(x)
     n_y = len(y)
 
-    z_score = (mu_x - mu_y) / np.sqrt((sigma_x ** 2 / n_x) + (sigma_y ** 2 / n_y))
+    z_score = (mu_x - mu_y) / np.sqrt((sigma_x**2 / n_x) + (sigma_y**2 / n_y))
     p_value = 2 * norm.sf(abs(z_score))  # two-tailed
 
     return z_score, p_value
@@ -251,7 +323,7 @@ def __mann_whitney_u_test(x, y):
     """
     from scipy.stats import mannwhitneyu
 
-    u_statistic, p_value = mannwhitneyu(x, y, alternative='two-sided')
+    u_statistic, p_value = mannwhitneyu(x, y, alternative="two-sided")
 
     return u_statistic, p_value
 
@@ -372,41 +444,44 @@ def __visibility_paradox_sub_population(YDH: YDataHandler, g, N=100, x=0.1):
 
     # null model generation
     user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
-            user_to_posts, N, x=1
-        )
+        user_to_posts, N, x=1
+    )
     null_means_dist = []
     for i in range(len(user_to_posts_list)):
         u_to_p_n = user_to_posts_list[i]
         users_to_impressions_n = __user_impressions_mapping(post_recs, u_to_p_n)
-        mean = np.mean(
-            __stats(users_to_impressions_n, user_to_posts_read, u_to_p_n, g)
-        )
+        mean = np.mean(__stats(users_to_impressions_n, user_to_posts_read, u_to_p_n, g))
         null_means_dist.append(mean)
 
     # generate a randomized mapping of users to posts for x% of the users
-    user_to_posts_list_partial, post_to_user_list_partial = __generate_randomized_mappings(
-        user_to_posts, N, x=1-x, g=g
+    user_to_posts_list_partial, post_to_user_list_partial = (
+        __generate_randomized_mappings(user_to_posts, N, x=1 - x, g=g)
     )
     partial_means_dist = []
     for i in range(len(user_to_posts_list_partial)):
         u_to_p_p = user_to_posts_list_partial[i]
         users_to_impressions_p = __user_impressions_mapping(post_recs, u_to_p_p)
-        mean = np.mean(
-            __stats(users_to_impressions_p, user_to_posts_read, u_to_p_p, g)
-        )
+        mean = np.mean(__stats(users_to_impressions_p, user_to_posts_read, u_to_p_p, g))
         partial_means_dist.append(mean)
 
     # calculate the z-score and p-value for the partial mapping
-    z_score, p_value = __mann_whitney_u_test(partial_means_dist, null_means_dist) #__z_test_two_distributions(partial_means_dist, null_means_dist)
+    z_score, p_value = __mann_whitney_u_test(
+        partial_means_dist, null_means_dist
+    )  # __z_test_two_distributions(partial_means_dist, null_means_dist)
     return {
-            "z_score": z_score,
-            "p_value": p_value,
-            "paradox_score_avg": np.mean(partial_means_dist),
-            "paradox_score_std": np.std(partial_means_dist),
-            }
+        "z_score": z_score,
+        "p_value": p_value,
+        "paradox_score_avg": np.mean(partial_means_dist),
+        "paradox_score_std": np.std(partial_means_dist),
+    }
 
 
-def visibility_paradox_population_size_null(YDH: YDataHandler, g, N=10, subject_to_rec=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]):
+def visibility_paradox_population_size_null(
+    YDH: YDataHandler,
+    g,
+    N=10,
+    subject_to_rec=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+):
     """
     Calculate the visibility paradox metric for a given YDataHandler and graph,
     considering the population size.

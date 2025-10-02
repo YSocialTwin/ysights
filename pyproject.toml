@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ysights"
+version = "0.1.0"
+description = "ySights - Extract insights from YSocial simulations"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "GPL-3.0"}
+authors = [
+    {name = "Giulio Rossetti", email = "giulio.rossetti@gmail.com"}
+]
+keywords = ["community-discovery", "node-clustering", "edge-clustering", "complex-networks", "social-simulation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "networkx",
+    "matplotlib",
+    "numpy",
+    "scipy",
+    "seaborn",
+    "plotly",
+    "scikit-learn",
+    "pandas",
+    "tqdm",
+]
+
+[project.urls]
+Homepage = "https://github.com/YSocialTwin/ysights"
+Documentation = "https://ysights.readthedocs.io"
+Repository = "https://github.com/YSocialTwin/ysights"
+Issues = "https://github.com/YSocialTwin/ysights/issues"
+
+[tool.black]
+line-length = 88
+target-version = ['py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+  | docs
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip_gitignore = true
+extend_skip = ["docs"]
+
+[tool.flake8]
+max-line-length = 127
+extend-ignore = ["E203", "E266", "E501", "W503"]
+exclude = [".git", "__pycache__", "docs", "build", "dist", ".eggs"]
+max-complexity = 10

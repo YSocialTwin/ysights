@@ -1,11 +1,12 @@
-import unittest
 import os
-from ysights.models.YDataHandler import YDataHandler
+import unittest
+
 from ysights.algorithms.topics import (
-    topic_spread,
     adoption_rate,
     peak_engagement_time,
+    topic_spread,
 )
+from ysights.models.YDataHandler import YDataHandler
 
 
 class TopicTestCase(unittest.TestCase):

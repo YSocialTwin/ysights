@@ -1,0 +1,55 @@
+{% set name = "ysights" %}
+{% set version = "0.1.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  noarch: python
+  number: 0
+  script: "{{ PYTHON }} -m pip install . -vv"
+
+requirements:
+  host:
+    - python >=3.9
+    - pip
+    - setuptools
+  run:
+    - python >=3.9
+    - networkx
+    - matplotlib
+    - numpy
+    - scipy
+    - seaborn
+    - plotly
+    - scikit-learn
+    - pandas
+
+test:
+  imports:
+    - ysights
+    - ysights.models
+    - ysights.algorithms
+    - ysights.viz
+
+about:
+  home: https://github.com/YSocialTwin/ysights
+  license: GPL-3.0
+  license_family: GPL
+  license_file: LICENSE
+  summary: 'ySights - Extract insights from YSocial simulations'
+  description: |
+    ySights is a Python library for analyzing data from YSocial simulations.
+    It provides tools for extracting insights from social media simulation data,
+    including agent behaviors, content dynamics, network structures, and
+    recommendation system effects.
+  doc_url: https://ysights.readthedocs.io
+  dev_url: https://github.com/YSocialTwin/ysights
+
+extra:
+  recipe-maintainers:
+    - GiulioRossetti

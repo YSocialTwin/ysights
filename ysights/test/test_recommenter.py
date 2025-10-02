@@ -1,10 +1,11 @@
-import unittest
 import os
-from ysights.models.YDataHandler import YDataHandler
+import unittest
+
 from ysights.algorithms.recommenders import (
     engagement_momentum,
     personalization_balance_score,
 )
+from ysights.models.YDataHandler import YDataHandler
 
 
 class RecsysTestCase(unittest.TestCase):
