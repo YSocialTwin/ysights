@@ -13,6 +13,7 @@ Functions for analyzing agent profiles and interest similarity.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Visibility Paradox
 ------------------
@@ -23,6 +24,7 @@ Functions for detecting and analyzing the visibility paradox in social networks.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Recommender Metrics
 -------------------
@@ -33,6 +35,7 @@ Metrics for evaluating recommendation system performance.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Topic Analysis
 --------------
@@ -43,3 +46,4 @@ Functions for analyzing topic dynamics and evolution.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:

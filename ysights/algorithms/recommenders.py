@@ -47,8 +47,11 @@ def engagement_momentum(YDH: YDataHandler, time_window_rounds: int = 24):
     to give more weight to recent recommendations.
     The momentum for each post is defined as the sum of the number of recommendations in each time slot,
     weighted by an exponential decay factor based on the slot index.
-    The formula used is:
+
+    The formula used is::
+
         momentum(post_id) = sum(exp(-0.1 * slot) * count)
+
     where `slot` is the time slot index and `count` is the number of recommendations in that slot.
 
     :param YDH: YDataHandler instance for database operations
@@ -93,7 +96,9 @@ def personalization_balance_score(
     and the niche rate is the ratio of popular posts in the user's interest slots to the total number of posts.
     The function retrieves user posts and interests from the database, calculates the match and niche rates,
     and combines them using the specified alpha parameter to produce a balance score for each user.
-    The balance score is defined as:
+
+    The balance score is defined as::
+
         balance_score(user) = alpha * match_rate(user) + (1 - alpha) * niche_rate(user)
 
     This function is useful for evaluating how well the content of posts aligns with the interests of the users,
