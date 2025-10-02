@@ -2,11 +2,20 @@ import os
 import sqlite3
 from collections import defaultdict, namedtuple
 from functools import wraps
+from urllib.parse import urlparse
 
 import networkx as nx
 
 from ysights.models.Agents import Agent, Agents
 from ysights.models.Posts import Post, Posts
+
+# Try to import psycopg2, but don't fail if it's not available
+try:
+    import psycopg2
+    import psycopg2.extras
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
 
 UserPost = namedtuple("UserPost", ["agent_id", "post_id"])
 
@@ -20,18 +29,21 @@ class YDataHandler:
     post information, extracts social networks, and provides various analytical
     methods for understanding simulation dynamics.
 
-    :param db_path: Path to the SQLite database file containing YSocial simulation data
+    Supports both SQLite and PostgreSQL databases with the same table structure.
+
+    :param db_path: Path to SQLite database file or PostgreSQL connection string
     :type db_path: str
 
-    :ivar str db_path: Path to the SQLite database
-    :ivar connection: Active SQLite database connection (None when not connected)
+    :ivar str db_path: Database path or connection string
+    :ivar str db_type: Type of database ('sqlite' or 'postgresql')
+    :ivar connection: Active database connection (None when not connected)
 
     Example:
-        Basic usage of YDataHandler::
+        Basic usage with SQLite::
 
             from ysights import YDataHandler
 
-            # Initialize handler with database path
+            # Initialize handler with SQLite database
             ydh = YDataHandler('path/to/simulation_data.db')
 
             # Get time range of simulation
@@ -39,6 +51,17 @@ class YDataHandler:
             print(f"Simulation runs from round {time_info['min_round']} to {time_info['max_round']}")
 
             # Get all agents
+            agents = ydh.agents()
+            print(f"Total agents: {len(agents.get_agents())}")
+        
+        Basic usage with PostgreSQL::
+
+            from ysights import YDataHandler
+
+            # Initialize handler with PostgreSQL database
+            ydh = YDataHandler('postgresql://user:password@localhost:5432/ysocial_db')
+
+            # Use the same methods as with SQLite
             agents = ydh.agents()
             print(f"Total agents: {len(agents.get_agents())}")
 
@@ -64,18 +87,37 @@ class YDataHandler:
 
     def __init__(self, db_path):
         """
-        Initialize the YDataHandler with the path to the SQLite database.
+        Initialize the YDataHandler with database connection information.
 
-        :param db_path: Path to the SQLite database file
+        :param db_path: Path to SQLite database file or PostgreSQL connection string.
+                       For SQLite: 'path/to/database.db'
+                       For PostgreSQL: 'postgresql://user:password@host:port/database'
+                                      or 'postgres://user:password@host:port/database'
         :type db_path: str
-        :raises FileNotFoundError: If the database file does not exist when first accessed
+        :raises FileNotFoundError: If the SQLite database file does not exist when first accessed
+        :raises ImportError: If PostgreSQL connection string is used but psycopg2 is not installed
 
         Example::
 
+            # SQLite
             ydh = YDataHandler('simulation_results/data.db')
+            
+            # PostgreSQL
+            ydh = YDataHandler('postgresql://user:password@localhost:5432/ysocial_db')
         """
         self.db_path = db_path
         self.connection = None
+        
+        # Detect database type
+        if db_path.startswith('postgresql://') or db_path.startswith('postgres://'):
+            self.db_type = 'postgresql'
+            if not PSYCOPG2_AVAILABLE:
+                raise ImportError(
+                    "psycopg2 is required for PostgreSQL support. "
+                    "Install it with: pip install psycopg2-binary"
+                )
+        else:
+            self.db_type = 'sqlite'
 
     # Connection handling methods
 
@@ -118,13 +160,17 @@ class YDataHandler:
 
     def __connect(self):
         """
-        Establish connection to the SQLite database.
+        Establish connection to the database (SQLite or PostgreSQL).
 
-        :raises FileNotFoundError: If the database file does not exist
+        :raises FileNotFoundError: If the SQLite database file does not exist
+        :raises Exception: If PostgreSQL connection fails
         """
-        if not os.path.exists(self.db_path):
-            raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
-        self.connection = sqlite3.connect(self.db_path)
+        if self.db_type == 'sqlite':
+            if not os.path.exists(self.db_path):
+                raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
+            self.connection = sqlite3.connect(self.db_path)
+        elif self.db_type == 'postgresql':
+            self.connection = psycopg2.connect(self.db_path)
 
     def __close(self):
         """
@@ -141,12 +187,38 @@ class YDataHandler:
         Get a database cursor for executing SQL queries.
 
         :return: Database cursor
-        :rtype: sqlite3.Cursor
+        :rtype: sqlite3.Cursor or psycopg2.cursor
         :raises FileNotFoundError: If database connection is not established
         """
         if not self.connection:
             raise FileNotFoundError("Database connection is not established.")
         return self.connection.cursor()
+
+    def __convert_query_for_db(self, query, params=None):
+        """
+        Convert query parameters from SQLite format to database-specific format.
+        
+        :param query: SQL query string with ? placeholders (SQLite style)
+        :type query: str
+        :param params: Query parameters
+        :type params: tuple or list
+        :return: Tuple of (converted_query, params)
+        :rtype: tuple
+        """
+        if self.db_type == 'postgresql':
+            # Convert ? placeholders to %s for PostgreSQL
+            count = 0
+            converted_query = ""
+            for char in query:
+                if char == '?':
+                    count += 1
+                    converted_query += "%s"
+                else:
+                    converted_query += char
+            return converted_query, params
+        else:
+            # SQLite - no conversion needed
+            return query, params
 
     def __execute_query(self, query, params=None):
         """
@@ -162,6 +234,10 @@ class YDataHandler:
         """
         if not self.connection:
             raise FileNotFoundError("Database connection is not established.")
+        
+        # Convert query to database-specific format
+        query, params = self.__convert_query_for_db(query, params)
+        
         cursor = self.connection.cursor()
         cursor.execute(query, params or [])
         return cursor.fetchall()
@@ -678,7 +754,7 @@ class YDataHandler:
             :meth:`agent_recommendations`: Get recommendations received by agent
         """
         if from_round is not None and to_round is not None:
-            query = "SELECT p.id FROM post as p WHERE p.user_id = ? AND p.id round >= ? AND round <= ?"
+            query = "SELECT p.id FROM post as p WHERE p.user_id = ? AND p.round >= ? AND p.round <= ?"
             data = self.__execute_query(query, (agent_id, from_round, to_round))
         else:
             query = "SELECT p.id FROM post as p WHERE p.user_id = ?"

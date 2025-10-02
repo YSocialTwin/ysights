@@ -40,6 +40,9 @@ dependencies = [
     "tqdm",
 ]
 
+[project.optional-dependencies]
+postgresql = ["psycopg2-binary"]
+
 [project.urls]
 Homepage = "https://github.com/YSocialTwin/ysights"
 Documentation = "https://ysights.readthedocs.io"
