@@ -13,6 +13,7 @@ Functions for visualizing aggregate statistics and trends.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Topic Visualizations
 --------------------
@@ -23,6 +24,7 @@ Functions for visualizing topic evolution and density.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Profile Visualizations
 ----------------------
@@ -33,6 +35,7 @@ Functions for visualizing profile similarity analysis.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Paradox Visualizations
 ----------------------
@@ -43,6 +46,7 @@ Functions for visualizing the visibility paradox.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Recommendation Visualizations
 -----------------------------
@@ -53,3 +57,4 @@ Functions for visualizing recommendation system metrics.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:

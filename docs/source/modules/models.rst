@@ -13,6 +13,7 @@ The main interface for database operations and data retrieval.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Agent Classes
 -------------
@@ -23,6 +24,7 @@ Classes for representing individual agents and agent collections.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
 
 Post Classes
 ------------
@@ -33,3 +35,4 @@ Classes for representing posts and post collections.
    :members:
    :undoc-members:
    :show-inheritance:
+   :noindex:
