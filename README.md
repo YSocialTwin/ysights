@@ -25,12 +25,22 @@ A Python library for analyzing data from YSocial simulations. ySights provides c
 pip install ysights
 ```
 
+### With PostgreSQL Support
+
+If you want to use PostgreSQL databases instead of SQLite:
+
+```bash
+pip install ysights[postgresql]
+```
+
 ### From Source
 
 ```bash
 git clone https://github.com/YSocialTwin/ysights.git
 cd ysights
 pip install -e .
+# Or with PostgreSQL support:
+pip install -e .[postgresql]
 ```
 
 ### Using Conda
@@ -41,10 +51,12 @@ conda install -c conda-forge ysights
 
 ## Quick Start
 
+### Using SQLite (default)
+
 ```python
 from ysights import YDataHandler
 
-# Initialize data handler with your simulation database
+# Initialize data handler with your SQLite simulation database
 ydh = YDataHandler('path/to/simulation.db')
 
 # Get simulation time range
@@ -65,18 +77,35 @@ posts = ydh.posts_by_agent(agent_id)
 print(f"Agent {agent_id} created {len(posts.get_posts())} posts")
 ```
 
+### Using PostgreSQL
+
+```python
+from ysights import YDataHandler
+
+# Initialize data handler with PostgreSQL connection string
+ydh = YDataHandler('postgresql://user:password@localhost:5432/ysocial_db')
+
+# Use the same API - all methods work identically
+agents = ydh.agents()
+network = ydh.social_network()
+```
+
+**Note**: ySights supports both SQLite and PostgreSQL databases with the same table structure. The API is identical regardless of which database you use.
+
 ## Main Components
 
 ### 1. Data Models (`ysights.models`)
 
-- **YDataHandler**: Main interface for database operations
+- **YDataHandler**: Main interface for database operations (supports both SQLite and PostgreSQL)
 - **Agents/Agent**: Classes for representing individual agents and agent collections
 - **Posts/Post**: Classes for representing posts and post collections
 
 ```python
 from ysights import YDataHandler
 
-ydh = YDataHandler('simulation.db')
+# Works with both SQLite and PostgreSQL
+ydh = YDataHandler('simulation.db')  # SQLite
+# ydh = YDataHandler('postgresql://user:pass@host/db')  # PostgreSQL
 
 # Get agents by feature
 young_agents = ydh.agents_by_feature('age', 25)
@@ -259,6 +288,8 @@ The project includes comprehensive GitHub Actions workflows:
 
 ## Requirements
 
+### Core Dependencies
+
 - Python >= 3.9
 - networkx
 - matplotlib
@@ -269,6 +300,10 @@ The project includes comprehensive GitHub Actions workflows:
 - scikit-learn
 - pandas
 - tqdm
+
+### Optional Dependencies
+
+- **psycopg2-binary** (for PostgreSQL support): Install with `pip install ysights[postgresql]`
 
 ## Contributing
 
