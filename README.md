@@ -1,5 +1,6 @@
 ![ysigth.png](docs/source/ysigth.png)
-
+# ySights - YSocial Data Analysis Made Simple
+[![PyPI Version](https://img.shields.io/pypi/v/ysights.svg)](https://pypi.org/project/ysights/)
 [![CI - Code Quality and Tests](https://github.com/YSocialTwin/ysights/actions/workflows/ci.yml/badge.svg)](https://github.com/YSocialTwin/ysights/actions/workflows/ci.yml)
 [![Documentation Status](https://readthedocs.org/projects/ysights/badge/?version=latest)](https://ysights.readthedocs.io/en/latest/?badge=latest)
 [![Python Version](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
