@@ -1,4 +1,4 @@
-# ySights
+![ysigth.png](docs/source/ysigth.png)
 
 [![CI - Code Quality and Tests](https://github.com/YSocialTwin/ysights/actions/workflows/ci.yml/badge.svg)](https://github.com/YSocialTwin/ysights/actions/workflows/ci.yml)
 [![Documentation Status](https://readthedocs.org/projects/ysights/badge/?version=latest)](https://ysights.readthedocs.io/en/latest/?badge=latest)
