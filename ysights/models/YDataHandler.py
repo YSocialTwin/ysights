@@ -13,6 +13,7 @@ from ysights.models.Posts import Post, Posts
 try:
     import psycopg2
     import psycopg2.extras
+
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     PSYCOPG2_AVAILABLE = False
@@ -53,7 +54,7 @@ class YDataHandler:
             # Get all agents
             agents = ydh.agents()
             print(f"Total agents: {len(agents.get_agents())}")
-        
+
         Basic usage with PostgreSQL::
 
             from ysights import YDataHandler
@@ -101,23 +102,23 @@ class YDataHandler:
 
             # SQLite
             ydh = YDataHandler('simulation_results/data.db')
-            
+
             # PostgreSQL
             ydh = YDataHandler('postgresql://user:password@localhost:5432/ysocial_db')
         """
         self.db_path = db_path
         self.connection = None
-        
+
         # Detect database type
-        if db_path.startswith('postgresql://') or db_path.startswith('postgres://'):
-            self.db_type = 'postgresql'
+        if db_path.startswith("postgresql://") or db_path.startswith("postgres://"):
+            self.db_type = "postgresql"
             if not PSYCOPG2_AVAILABLE:
                 raise ImportError(
                     "psycopg2 is required for PostgreSQL support. "
                     "Install it with: pip install psycopg2-binary"
                 )
         else:
-            self.db_type = 'sqlite'
+            self.db_type = "sqlite"
 
     # Connection handling methods
 
@@ -165,11 +166,11 @@ class YDataHandler:
         :raises FileNotFoundError: If the SQLite database file does not exist
         :raises Exception: If PostgreSQL connection fails
         """
-        if self.db_type == 'sqlite':
+        if self.db_type == "sqlite":
             if not os.path.exists(self.db_path):
                 raise FileNotFoundError(f"Database file {self.db_path} does not exist.")
             self.connection = sqlite3.connect(self.db_path)
-        elif self.db_type == 'postgresql':
+        elif self.db_type == "postgresql":
             self.connection = psycopg2.connect(self.db_path)
 
     def __close(self):
@@ -197,7 +198,7 @@ class YDataHandler:
     def __convert_query_for_db(self, query, params=None):
         """
         Convert query parameters from SQLite format to database-specific format.
-        
+
         :param query: SQL query string with ? placeholders (SQLite style)
         :type query: str
         :param params: Query parameters
@@ -205,12 +206,12 @@ class YDataHandler:
         :return: Tuple of (converted_query, params)
         :rtype: tuple
         """
-        if self.db_type == 'postgresql':
+        if self.db_type == "postgresql":
             # Convert ? placeholders to %s for PostgreSQL
             count = 0
             converted_query = ""
             for char in query:
-                if char == '?':
+                if char == "?":
                     count += 1
                     converted_query += "%s"
                 else:
@@ -234,10 +235,10 @@ class YDataHandler:
         """
         if not self.connection:
             raise FileNotFoundError("Database connection is not established.")
-        
+
         # Convert query to database-specific format
         query, params = self.__convert_query_for_db(query, params)
-        
+
         cursor = self.connection.cursor()
         cursor.execute(query, params or [])
         return cursor.fetchall()
