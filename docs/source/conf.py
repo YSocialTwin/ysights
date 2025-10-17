@@ -43,6 +43,8 @@ extensions = [
     'nbsphinx',
 ]
 
+html_logo = '_static/ysight.png'
+
 # nbsphinx configuration
 nbsphinx_execute = 'never'  # Don't execute notebooks during build
 nbsphinx_allow_errors = True  # Continue even if notebooks have errors
