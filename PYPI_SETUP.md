@@ -84,7 +84,7 @@ To test the package publishing without affecting the main PyPI:
 5. Set "Publish to PyPI" to `true`
 6. Click "Run workflow"
 
-This will build and upload to Test PyPI using the `TEST_PYPI_API_TOKEN`.
+**Note:** When triggered manually with "Publish to PyPI" set to `true`, the workflow publishes to **Test PyPI** (not production PyPI) using the `TEST_PYPI_API_TOKEN`. This allows you to test the publishing process safely.
 
 ### Automatic Publishing (Main PyPI)
 
@@ -163,15 +163,17 @@ If you see "File already exists" errors:
 
 Before publishing a new version:
 
-1. Update version in `pyproject.toml`:
+1. Update version in `pyproject.toml` (primary source):
    ```toml
    version = "0.2.0"
    ```
 
-2. Update version in `setup.py`:
+2. Update version in `setup.py` (for backward compatibility):
    ```python
    version="0.2.0",
    ```
+   
+   **Note:** This project maintains both `pyproject.toml` (modern, PEP 621 standard) and `setup.py` (legacy) for compatibility. The `pyproject.toml` is the primary source of truth for the version. If your project only uses `pyproject.toml`, you can skip updating `setup.py`.
 
 3. Commit the version changes
 4. Create a new release with the corresponding tag (e.g., `v0.2.0`)
