@@ -33,8 +33,31 @@ Builds and publishes Python packages to PyPI:
 **For releases:** Tag a release on GitHub to automatically publish to PyPI
 
 **Required secrets:**
-- Uses trusted publishing (no token needed for main PyPI)
-- For Test PyPI, configure in repository settings
+- `PYPI_API_TOKEN`: API token for uploading to PyPI.org
+  - Get token from: https://pypi.org/manage/account/token/
+  - Scope: Entire account or specific project
+  - Add to: Repository Settings → Secrets and variables → Actions → Repository secrets
+- `TEST_PYPI_API_TOKEN`: API token for uploading to Test PyPI (optional, for testing)
+  - Get token from: https://test.pypi.org/manage/account/token/
+  - Scope: Entire account or specific project
+  - Add to: Repository Settings → Secrets and variables → Actions → Repository secrets
+
+**Setup steps:**
+1. Create a PyPI account at https://pypi.org/account/register/
+2. Enable two-factor authentication (2FA) on your PyPI account (required)
+3. Generate an API token:
+   - Go to https://pypi.org/manage/account/token/
+   - Click "Add API token"
+   - Give it a descriptive name (e.g., "GitHub Actions - ysights")
+   - Choose scope: "Entire account" (or specific project after first upload)
+   - Copy the token (it will only be shown once!)
+4. Add the token to GitHub repository secrets:
+   - Go to Repository Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `PYPI_API_TOKEN`
+   - Value: Paste the token (including the `pypi-` prefix)
+   - Click "Add secret"
+5. (Optional) Repeat steps 1-4 for Test PyPI using `TEST_PYPI_API_TOKEN`
 
 ### 3. Build and Publish to Conda (`conda-publish.yml`)
 **Trigger:** Manual (workflow_dispatch) or on release
