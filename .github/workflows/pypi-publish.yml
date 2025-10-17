@@ -53,9 +53,9 @@ jobs:
       if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true'
       env:
         TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
       run: |
-        twine upload --repository testpypi dist/* --skip-existing --verbose
+        twine upload dist/* --skip-existing --verbose
 
     - name: Publish to PyPI (on release)
       if: github.event_name == 'release'
