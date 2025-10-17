@@ -53,7 +53,7 @@ class PostgreSQLIntegrationTestCase(unittest.TestCase):
                 conn = psycopg2.connect(
                     dbname="postgres",
                     user=os.environ.get("PGUSER", "postgres"),
-                    password=os.environ.get("PGPASSWORD", ""),
+                    password=os.environ.get("PGPASSWORD", "password"),
                     host=os.environ.get("PGHOST", "localhost"),
                     port=os.environ.get("PGPORT", "5432"),
                 )
@@ -70,7 +70,7 @@ class PostgreSQLIntegrationTestCase(unittest.TestCase):
                 cls.pg_conn = psycopg2.connect(
                     dbname=cls.pg_dbname,
                     user=os.environ.get("PGUSER", "postgres"),
-                    password=os.environ.get("PGPASSWORD", ""),
+                    password=os.environ.get("PGPASSWORD", "password"),
                     host=os.environ.get("PGHOST", "localhost"),
                     port=os.environ.get("PGPORT", "5432"),
                 )
@@ -188,7 +188,7 @@ class PostgreSQLIntegrationTestCase(unittest.TestCase):
         if cls.pg_dbname:
             try:
                 conn = psycopg2.connect(
-                    dbname="postgres",
+                    dbname="dashboard",
                     user=os.environ.get("PGUSER", "postgres"),
                     password=os.environ.get("PGPASSWORD", ""),
                     host=os.environ.get("PGHOST", "localhost"),
@@ -206,7 +206,7 @@ class PostgreSQLIntegrationTestCase(unittest.TestCase):
         """Get a YDataHandler for the PostgreSQL test database."""
         connection_string = (
             f"postgresql://{os.environ.get('PGUSER', 'postgres')}:"
-            f"{os.environ.get('PGPASSWORD', '')}@"
+            f"{os.environ.get('PGPASSWORD', 'password')}@"
             f"{os.environ.get('PGHOST', 'localhost')}:"
             f"{os.environ.get('PGPORT', '5432')}/"
             f"{self.pg_dbname}"
