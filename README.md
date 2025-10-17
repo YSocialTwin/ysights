@@ -262,12 +262,21 @@ The project includes comprehensive GitHub Actions workflows:
   - Documentation available at: `https://ysocialtwin.github.io/ysights/`
 
 - **PyPI Publishing**: Build and publish packages to PyPI
+  - Uses Trusted Publishing (OIDC) for secure authentication
   - Manual trigger for Test PyPI
   - Automatic publishing on releases
 
 - **Conda Publishing**: Build and publish conda packages
   - Multi-platform support (Linux, macOS, Windows)
   - Manual trigger with publish option
+
+### Repository Setup
+
+To enable package publishing and documentation deployment, you need to configure certain repository settings and secrets. See [REPOSITORY_SETUP.md](REPOSITORY_SETUP.md) for detailed instructions on:
+
+- Setting up PyPI Trusted Publishing
+- Configuring Anaconda token for Conda package publishing
+- Enabling GitHub Pages for documentation deployment
 
 ## Requirements
 
