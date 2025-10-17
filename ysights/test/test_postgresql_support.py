@@ -25,7 +25,9 @@ class PostgreSQLSupportTestCase(unittest.TestCase):
     def test_postgresql_initialization(self):
         """Test that PostgreSQL connection strings are correctly identified."""
         # Test with postgresql:// prefix
-        handler = YDataHandler("postgresql://postgresql:password@localhost:5432/test_db")
+        handler = YDataHandler(
+            "postgresql://postgresql:password@localhost:5432/test_db"
+        )
         self.assertEqual(handler.db_type, "postgresql")
 
         # Test with postgres:// prefix
@@ -53,7 +55,9 @@ class PostgreSQLSupportTestCase(unittest.TestCase):
 
     def test_query_conversion_postgresql(self):
         """Test that PostgreSQL queries are converted correctly."""
-        handler = YDataHandler("postgresql://postgresql:password@localhost:5432/test_db")
+        handler = YDataHandler(
+            "postgresql://postgresql:password@localhost:5432/test_db"
+        )
 
         # Test query with placeholders
         query = "SELECT * FROM user_mgmt WHERE id = ? AND age > ?"
@@ -70,7 +74,9 @@ class PostgreSQLSupportTestCase(unittest.TestCase):
 
     def test_query_conversion_complex(self):
         """Test query conversion with complex queries."""
-        handler = YDataHandler("postgresql://postgresql:password@localhost:5432/test_db")
+        handler = YDataHandler(
+            "postgresql://postgresql:password@localhost:5432/test_db"
+        )
 
         # Test query with multiple placeholders
         query = "SELECT * FROM post WHERE user_id = ? AND round >= ? AND round <= ?"
@@ -88,7 +94,9 @@ class PostgreSQLSupportTestCase(unittest.TestCase):
 
     def test_query_conversion_no_params(self):
         """Test query conversion without parameters."""
-        handler = YDataHandler("postgresql://postgresql:password@localhost:5432/test_db")
+        handler = YDataHandler(
+            "postgresql://postgresql:password@localhost:5432/test_db"
+        )
 
         query = "SELECT * FROM user_mgmt"
         params = None
