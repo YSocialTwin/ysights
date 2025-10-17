@@ -2,7 +2,7 @@ Algorithms Package
 ==================
 
 The algorithms package provides analysis functions for YSocial simulation data,
-including profile similarity, paradox detection, recommendation metrics, and topic analysis.
+including profile similarity, recommendation metrics, and topic analysis.
 
 Profile Analysis
 ----------------

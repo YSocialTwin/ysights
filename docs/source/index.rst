@@ -69,11 +69,6 @@ Contents
    modules/algorithms
    modules/viz
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Complete API Reference
-
-   api
 
 Indices and tables
 ==================
