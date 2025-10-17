@@ -171,6 +171,7 @@ If you want to use a custom domain:
 
 Once published, your documentation will be available at:
 - **Default URL**: `https://ysocialtwin.github.io/ysights/`
+  - Note: GitHub Pages URLs use lowercase organization names
 - **Custom Domain**: If configured, your custom domain
 
 ### Environment Configuration (Already Set Up)
