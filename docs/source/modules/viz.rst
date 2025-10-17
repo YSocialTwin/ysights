@@ -37,17 +37,6 @@ Functions for visualizing profile similarity analysis.
    :show-inheritance:
    :noindex:
 
-Paradox Visualizations
-----------------------
-
-Functions for visualizing the visibility paradox.
-
-.. automodule:: ysights.viz.paradox_viz
-   :members:
-   :undoc-members:
-   :show-inheritance:
-   :noindex:
-
 Recommendation Visualizations
 -----------------------------
 

@@ -15,17 +15,6 @@ Functions for analyzing agent profiles and interest similarity.
    :show-inheritance:
    :noindex:
 
-Visibility Paradox
-------------------
-
-Functions for detecting and analyzing the visibility paradox in social networks.
-
-.. automodule:: ysights.algorithms.paradox
-   :members:
-   :undoc-members:
-   :show-inheritance:
-   :noindex:
-
 Recommender Metrics
 -------------------
 

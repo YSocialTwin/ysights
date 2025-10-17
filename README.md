@@ -125,15 +125,6 @@ from ysights.algorithms import profile_topics_similarity
 similarity = profile_topics_similarity(ydh, network)
 ```
 
-#### Paradox Detection
-```python
-from ysights.algorithms import visibility_paradox
-
-# Analyze visibility paradox
-paradox_results = visibility_paradox(ydh, network, N=100)
-print(f"Paradox score: {paradox_results['paradox_score']:.3f}")
-```
-
 #### Recommendation Metrics
 ```python
 from ysights.algorithms import engagement_momentum, personalization_balance_score
@@ -192,15 +183,6 @@ from ysights.viz import (
 
 # Visualize profile similarity
 fig = profile_similarity_distribution([similarity], ['All Users'])
-fig.show()
-```
-
-#### Paradox Visualizations
-```python
-from ysights.viz import paradox_density_scatter, paradox_histogram
-
-# Visualize visibility paradox
-fig = paradox_density_scatter(user_vis, neighbor_vis)
 fig.show()
 ```
 
