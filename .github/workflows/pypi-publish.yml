@@ -52,12 +52,12 @@ jobs:
         name: pypi-packages
         path: dist/
 
-   # - name: Publish to Test PyPI (manual trigger only)
-   #   if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true'
-   #   uses: pypa/gh-action-pypi-publish@release/v1
-   #   with:
-   #     repository-url: https://test.pypi.org/legacy/
-   #     skip-existing: true
+    - name: Publish to Test PyPI (manual trigger only)
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        skip-existing: true
 
     - name: Publish to PyPI (on release)
       if: github.event_name == 'release'
