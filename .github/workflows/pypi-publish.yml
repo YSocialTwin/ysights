@@ -17,9 +17,6 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
-      contents: read
 
     steps:
     - uses: actions/checkout@v4
@@ -54,13 +51,16 @@ jobs:
 
     - name: Publish to Test PyPI (manual trigger only)
       if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true'
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: https://test.pypi.org/legacy/
-        skip-existing: true
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        twine upload --repository testpypi dist/* --skip-existing --verbose
 
     - name: Publish to PyPI (on release)
       if: github.event_name == 'release'
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        skip-existing: true
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: |
+        twine upload dist/* --skip-existing --verbose
