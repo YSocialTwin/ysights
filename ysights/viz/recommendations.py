@@ -105,7 +105,11 @@ def recommendations_vs_reactions(YDH: YDataHandler, density=False):
     for r in rows:
         for p in r[0].split("|"):
             if p != "":
-                posts_recs[int(p)] += 1
+                try:
+                    p = int(p)
+                except KeyError:
+                    pass
+                posts_recs[p] += 1
 
     i = [str(k) for k in posts_recs.keys() if k != ""]
     pids = ",".join(i)
@@ -178,7 +182,11 @@ def recommendations_vs_comments(YDH: YDataHandler, density=False):
     for r in rows:
         for p in r[0].split("|"):
             if p != "":
-                posts_recs[int(p)] += 1
+                try:
+                    p = int(p)
+                except KeyError:
+                    pass
+                posts_recs[p] += 1
 
     i = [str(k) for k in posts_recs.keys() if k != ""]
     pids = ",".join(i)

@@ -20,7 +20,7 @@ with open(path.join(here, "requirements.txt"), encoding="utf-8") as f:
 
 setup(
     name="ysights",
-    version="0.1.0",
+    version="0.1.1",
     license="GPL-3.0",
     description="ySights - Extract insights from YSocial simulations",
     url="https://github.com/YSocialTwin/ysights",

@@ -704,8 +704,12 @@ class YDataHandler:
             rw = row[0].split("|")
 
             for r in rw:
-                aid = self.agent_id_by_post_id(int(r))
-                recommendations[UserPost(agent_id=aid, post_id=int(r))] += 1
+                try:
+                    r = int(r)
+                except KeyError:
+                    pass
+                aid = self.agent_id_by_post_id(r)
+                recommendations[UserPost(agent_id=aid, post_id=r)] += 1
 
         return recommendations
 
@@ -761,7 +765,11 @@ class YDataHandler:
             query = "SELECT p.id FROM post as p WHERE p.user_id = ?"
             data = self.__execute_query(query, (agent_id,))
 
-        posts = {int(row[0]): None for row in data}
+        try:
+            posts = {int(row[0]): None for row in data}
+        except Exception:
+            posts = {row[0]: None for row in data}
+
         # filter rec_stats to only include posts made by the agent
         filtered_recs = {k: v for k, v in rec_stats.items() if k in posts}
         return filtered_recs
@@ -805,7 +813,11 @@ class YDataHandler:
         for row in recs:
             rw = row[0].split("|")
             for r in rw:
-                rec_stats[int(r)] += 1
+                try:
+                    r = int(r)
+                except KeyError:
+                    pass
+                rec_stats[r] += 1
 
         return rec_stats
 
@@ -854,12 +866,16 @@ class YDataHandler:
         for uid, pts in recs:
             pt_ids = pts.split("|")
             for p in pt_ids:
-                user_to_posts_read[uid].append(int(p))
+                try:
+                    p = int(p)
+                except KeyError:
+                    pass
+                user_to_posts_read[uid].append(p)
                 if p not in post_recs:
-                    post_recs[int(p)] = 1
+                    post_recs[p] = 1
 
                 else:
-                    post_recs[int(p)] += 1
+                    post_recs[p] += 1
 
         return post_recs, user_to_posts_read
 

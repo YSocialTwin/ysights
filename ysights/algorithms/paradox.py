@@ -342,12 +342,20 @@ def user_visibility_vs_neighbors(YDH: YDataHandler, g):
 
     post_to_users = {}
     user_to_posts = {}
+
     for pts in posts.get_posts():
-        if int(pts.user_id) not in user_to_posts:
-            user_to_posts[int(pts.user_id)] = [int(pts.id)]
+
+        try:
+            pts.user_id = int(pts.user_id)
+            pts.id = int(pts.id)
+        except ValueError:
+            pass
+
+        if pts.user_id not in user_to_posts:
+            user_to_posts[pts.user_id] = [pts.id]
         else:
-            user_to_posts[int(pts.user_id)].append(int(pts.id))
-        post_to_users[int(pts.id)] = int(pts.user_id)
+            user_to_posts[pts.user_id].append(pts.id)
+        post_to_users[pts.id] = pts.user_id
 
     users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
     users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
@@ -385,11 +393,17 @@ def visibility_paradox(YDH: YDataHandler, g, N=100):
     post_to_users = {}
     user_to_posts = {}
     for pts in posts.get_posts():
-        if int(pts.user_id) not in user_to_posts:
-            user_to_posts[int(pts.user_id)] = [int(pts.id)]
+        try:
+            pts.user_id = int(pts.user_id)
+            pts.id = int(pts.id)
+        except ValueError:
+            pass
+
+        if pts.user_id not in user_to_posts:
+            user_to_posts[pts.user_id] = [pts.id]
         else:
-            user_to_posts[int(pts.user_id)].append(int(pts.id))
-        post_to_users[int(pts.id)] = int(pts.user_id)
+            user_to_posts[pts.user_id].append(pts.id)
+        post_to_users[pts.id] = pts.user_id
 
     users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
     users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
@@ -436,11 +450,17 @@ def __visibility_paradox_sub_population(YDH: YDataHandler, g, N=100, x=0.1):
     post_to_users = {}
     user_to_posts = {}
     for pts in posts.get_posts():
-        if int(pts.user_id) not in user_to_posts:
-            user_to_posts[int(pts.user_id)] = [int(pts.id)]
+        try:
+            pts.user_id = int(pts.user_id)
+            pts.id = int(pts.id)
+        except ValueError:
+            pass
+
+        if pts.user_id not in user_to_posts:
+            user_to_posts[pts.user_id] = [pts.id]
         else:
-            user_to_posts[int(pts.user_id)].append(int(pts.id))
-        post_to_users[int(pts.id)] = int(pts.user_id)
+            user_to_posts[pts.user_id].append(pts.id)
+        post_to_users[pts.id] = pts.user_id
 
     # null model generation
     user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
