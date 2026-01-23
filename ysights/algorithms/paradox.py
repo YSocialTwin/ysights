@@ -364,6 +364,10 @@ def user_visibility_vs_neighbors(YDH: YDataHandler, g):
     n_avg_imp = []
     for user, i in users_to_impressions_total.items():
         u_imp.append(i)
+        if user not in g.nodes:
+            n_avg_imp.append(0)
+            continue
+
         n = g.neighbors(user)
         tot = 0
         norm = 0
@@ -371,7 +375,7 @@ def user_visibility_vs_neighbors(YDH: YDataHandler, g):
             if v in users_to_impressions_total:
                 tot += users_to_impressions_total[v]
             norm += 1
-        tot /= norm
+        tot = tot / norm if norm != 0 else 0
         n_avg_imp.append(tot)
 
     return u_imp, n_avg_imp
