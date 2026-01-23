@@ -348,7 +348,7 @@ def user_visibility_vs_neighbors(YDH: YDataHandler, g):
         try:
             pts.user_id = int(pts.user_id)
             pts.id = int(pts.id)
-        except ValueError:
+        except Exception:
             pass
 
         if pts.user_id not in user_to_posts:
@@ -396,7 +396,7 @@ def visibility_paradox(YDH: YDataHandler, g, N=100):
         try:
             pts.user_id = int(pts.user_id)
             pts.id = int(pts.id)
-        except ValueError:
+        except Exception:
             pass
 
         if pts.user_id not in user_to_posts:
@@ -453,7 +453,7 @@ def __visibility_paradox_sub_population(YDH: YDataHandler, g, N=100, x=0.1):
         try:
             pts.user_id = int(pts.user_id)
             pts.id = int(pts.id)
-        except ValueError:
+        except Exception:
             pass
 
         if pts.user_id not in user_to_posts:

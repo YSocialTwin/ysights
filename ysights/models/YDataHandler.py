@@ -706,7 +706,7 @@ class YDataHandler:
             for r in rw:
                 try:
                     r = int(r)
-                except KeyError:
+                except Exception:
                     pass
                 aid = self.agent_id_by_post_id(r)
                 recommendations[UserPost(agent_id=aid, post_id=r)] += 1
@@ -815,7 +815,7 @@ class YDataHandler:
             for r in rw:
                 try:
                     r = int(r)
-                except KeyError:
+                except Exception:
                     pass
                 rec_stats[r] += 1
 
@@ -868,7 +868,7 @@ class YDataHandler:
             for p in pt_ids:
                 try:
                     p = int(p)
-                except KeyError:
+                except Exception:
                     pass
                 user_to_posts_read[uid].append(p)
                 if p not in post_recs:

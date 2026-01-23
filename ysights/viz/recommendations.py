@@ -107,7 +107,7 @@ def recommendations_vs_reactions(YDH: YDataHandler, density=False):
             if p != "":
                 try:
                     p = int(p)
-                except KeyError:
+                except Exception:
                     pass
                 posts_recs[p] += 1
 
@@ -184,7 +184,7 @@ def recommendations_vs_comments(YDH: YDataHandler, density=False):
             if p != "":
                 try:
                     p = int(p)
-                except KeyError:
+                except Exception:
                     pass
                 posts_recs[p] += 1
 
