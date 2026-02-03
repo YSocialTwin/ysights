@@ -328,7 +328,7 @@ def __mann_whitney_u_test(x, y):
     return u_statistic, p_value
 
 
-def user_visibility_vs_neighbors(YDH: YDataHandler, g):
+def user_visibility_vs_neighbors(YDH: YDataHandler, g, node_ids=False):
     """
     Calculate the visibility for each user in the graph and the average of its neighbors' visibilities.
 
@@ -362,8 +362,10 @@ def user_visibility_vs_neighbors(YDH: YDataHandler, g):
 
     u_imp = []
     n_avg_imp = []
+    ids = []
     for user, i in users_to_impressions_total.items():
         u_imp.append(i)
+        ids.append(user)
         if user not in g.nodes:
             n_avg_imp.append(0)
             continue
@@ -378,6 +380,8 @@ def user_visibility_vs_neighbors(YDH: YDataHandler, g):
         tot = tot / norm if norm != 0 else 0
         n_avg_imp.append(tot)
 
+    if node_ids:
+        return ids, u_imp, n_avg_imp
     return u_imp, n_avg_imp
 
 
