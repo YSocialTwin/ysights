@@ -32,6 +32,7 @@ make html
   - `index.rst`: Main documentation page
   - `modules/`: API reference documentation
 - `build/`: Generated documentation (not committed to git)
+- `VISIBILITY_PARADOX.md`: Detailed mathematical formulation and theoretical background for the visibility paradox algorithm
 
 ## ReadTheDocs
 

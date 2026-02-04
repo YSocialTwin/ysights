@@ -52,6 +52,10 @@ References:
     - Friendship paradox (Feld, 1991)
     - Attention inequality in social networks
     - Filter bubble and echo chamber effects
+    
+    For detailed mathematical formulation and theoretical background, see:
+    docs/VISIBILITY_PARADOX.md - Complete mathematical description with formulas,
+    assumptions, null model construction, and statistical testing methodology.
 
 See Also:
     :func:`visibility_paradox`: Main function for paradox detection
