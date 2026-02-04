@@ -731,21 +731,30 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
     Calculate the visibility paradox over time with user-defined temporal granularity.
     
     This function tracks how the visibility paradox evolves during the simulation by
-    computing the paradox score at regular time intervals. The temporal granularity
-    is specified as a (day, hour) tuple defining the time window size.
+    computing the paradox score at regular time intervals using INCREMENTAL/CUMULATIVE data.
+    Each time point uses all data from the start of the simulation up to that time point,
+    showing how the paradox strengthens or changes as more data accumulates.
     
     :param YDH: YDataHandler, the data handler containing the YSocial simulation data
     :param g: networkx.Graph, the social network graph (can be full network or time-specific)
-    :param temporal_granularity: tuple of (days, hours) defining the time window
-                                  e.g., (1, 0) = 1 day windows, (0, 12) = 12 hour windows,
-                                  (1, 2) = 26 hour windows (1 day + 2 hours)
-    :param N: int, number of null models to generate for statistical testing per time window
+    :param temporal_granularity: tuple of (days, hours) defining the time intervals
+                                  e.g., (1, 0) = compute every 1 day, (0, 12) = every 12 hours,
+                                  (1, 2) = every 26 hours (1 day + 2 hours)
+    :param N: int, number of null models to generate for statistical testing per time point
     :return: dict with keys:
-        - 'time_points': list of (day, hour, round_id) tuples marking each time window
-        - 'paradox_scores': array of paradox scores over time
+        - 'time_points': list of (day, hour, round_id) tuples marking each cumulative endpoint
+        - 'paradox_scores': array of paradox scores over time (cumulative)
         - 'z_scores': array of z-scores over time
         - 'p_values': array of p-values over time
         - 'temporal_granularity': the temporal granularity used (days, hours)
+    
+    Note:
+        The computation is INCREMENTAL - each time point includes all data from the 
+        simulation start up to that point. For example, with daily granularity:
+        - Day 1: All data from start to day 1
+        - Day 2: All data from start to day 2
+        - Day 3: All data from start to day 3
+        This shows how the paradox evolves as the network and content accumulate.
     
     Example:
         >>> from ysights import YDataHandler
@@ -754,13 +763,13 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
         >>> ydh = YDataHandler('path/to/database.db')
         >>> network = ydh.social_network()
         >>> 
-        >>> # Compute paradox every day
+        >>> # Compute paradox every day (incrementally)
         >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(1, 0), N=50)
         >>> 
-        >>> # Compute paradox every 12 hours
+        >>> # Compute paradox every 12 hours (incrementally)
         >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(0, 12), N=50)
         >>> 
-        >>> # Compute paradox every 26 hours (1 day + 2 hours)
+        >>> # Compute paradox every 26 hours (incrementally)
         >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(1, 2), N=50)
     """
     
@@ -789,64 +798,65 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
     # Convert temporal granularity to hours for easier calculation
     granularity_hours = days_inc * 24 + hours_inc
     
-    # Generate time windows
+    # Generate time points (cumulative endpoints)
     time_points = []
     paradox_scores = []
     z_scores = []
     p_values = []
     
+    # Start from the initial time point
     current_day = start_day
     current_hour = start_hour
     
+    # Calculate first endpoint
+    end_window_hour = current_hour + granularity_hours
+    end_window_day = current_day + (end_window_hour // 24)
+    end_window_hour = end_window_hour % 24
+    
     while True:
-        # Calculate end of current window
-        end_window_hour = current_hour + granularity_hours
-        end_window_day = current_day + (end_window_hour // 24)
-        end_window_hour = end_window_hour % 24
-        
         # Check if we've passed the simulation end
         if end_window_day > end_day or (end_window_day == end_day and end_window_hour > end_hour):
             break
         
         try:
             # Get round IDs for this time window
-            from_round = YDH.time_to_round(current_day, current_hour)
+            from_round = YDH.time_to_round(start_day, start_hour)  # Always start from beginning
             to_round = YDH.time_to_round(end_window_day, end_window_hour)
         except ValueError:
             # If exact time doesn't exist, skip this window
-            current_hour += granularity_hours
-            current_day += current_hour // 24
-            current_hour = current_hour % 24
+            end_window_hour += granularity_hours
+            end_window_day += end_window_hour // 24
+            end_window_hour = end_window_hour % 24
             continue
         
-        # Get data for this time window
+        # Get data for this time window (CUMULATIVE: from start to current endpoint)
         # Note: We use the full network graph but filter posts/recommendations by time
         try:
-            # Get all round IDs within this time window (to handle non-sequential IDs)
+            # Get all round IDs from START to current endpoint (INCREMENTAL)
             round_ids = YDH.get_rounds_in_time_range(
-                start_day=current_day, 
-                start_hour=current_hour,
-                end_day=end_window_day, 
-                end_hour=end_window_hour
+                start_day=start_day,  # Always from the beginning
+                start_hour=start_hour,  # Always from the beginning
+                end_day=end_window_day,  # Up to current endpoint
+                end_hour=end_window_hour  # Up to current endpoint
             )
             if not round_ids:
                 # No rounds in this window, skip
-                current_hour += granularity_hours
-                current_day += current_hour // 24
-                current_hour = current_hour % 24
+                end_window_hour += granularity_hours
+                end_window_day += end_window_hour // 24
+                end_window_hour = end_window_hour % 24
                 continue
             
             valid_round_ids = set(round_ids)
             
-            # Extract posts for this time window
+            # Extract posts for this cumulative time range
             all_posts = YDH.posts()
             post_recs, user_to_posts_read = YDH.recommendations_per_post_per_user()
             
-            # Filter posts by time window using round ID set
+            # Filter posts by cumulative time range using round ID set
             user_to_posts = {}
             post_to_users = {}
             for pts in all_posts.get_posts():
-                # Check if post is within time window by checking if round ID is in valid set
+                # Check if post is within cumulative range
                 if hasattr(pts, 'round') and pts.round in valid_round_ids:
                     try:
                         pts.user_id = int(pts.user_id)
@@ -860,31 +870,31 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
                         user_to_posts[pts.user_id].append(pts.id)
                     post_to_users[pts.id] = pts.user_id
             
-            # If no posts in this window, skip
+            # If no posts in this range, skip
             if len(user_to_posts) == 0:
-                current_hour += granularity_hours
-                current_day += current_hour // 24
-                current_hour = current_hour % 24
+                end_window_hour += granularity_hours
+                end_window_day += end_window_hour // 24
+                end_window_hour = end_window_hour % 24
                 continue
             
             users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
             users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
             
-            # Compute paradox for this window
+            # Compute paradox for this cumulative range
             nodes_coeffs = __stats(
                 users_to_impressions_total, user_to_posts_read, user_to_posts, g
             )
             
             if len(nodes_coeffs) == 0:
                 # Skip if no coefficients could be computed
-                current_hour += granularity_hours
-                current_day += current_hour // 24
-                current_hour = current_hour % 24
+                end_window_hour += granularity_hours
+                end_window_day += end_window_hour // 24
+                end_window_hour = end_window_hour % 24
                 continue
             
             paradox_score = np.mean(nodes_coeffs)
             
-            # Generate null models for this window
+            # Generate null models for this cumulative range
             if N > 0:
                 user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
                     user_to_posts, N, x=1
@@ -903,20 +913,20 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
                 z_score = None
                 p_value = None
             
-            # Record results
-            time_points.append((current_day, current_hour, from_round))
+            # Record results (endpoint represents cumulative data up to this point)
+            time_points.append((end_window_day, end_window_hour, to_round))
             paradox_scores.append(paradox_score)
             z_scores.append(z_score)
             p_values.append(p_value)
             
         except Exception as e:
             # Skip windows that cause errors
-            print(f"Warning: Error computing paradox for window starting at day {current_day}, hour {current_hour}: {e}")
+            print(f"Warning: Error computing paradox for cumulative window up to day {end_window_day}, hour {end_window_hour}: {e}")
         
-        # Move to next window
-        current_hour += granularity_hours
-        current_day += current_hour // 24
-        current_hour = current_hour % 24
+        # Move to next endpoint
+        end_window_hour += granularity_hours
+        end_window_day += end_window_hour // 24
+        end_window_hour = end_window_hour % 24
     
     return {
         'time_points': time_points,

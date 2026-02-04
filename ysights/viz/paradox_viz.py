@@ -325,16 +325,20 @@ def paradox_significance_per_degree_class(results):
 
 def paradox_temporal_evolution(results):
     """
-    Visualize the temporal evolution of the visibility paradox.
+    Visualize the temporal evolution of the visibility paradox (INCREMENTAL).
     
     This function creates a dual-axis plot showing:
     - Left y-axis: Statistical significance (p-values) as a trend line over time
     - Right y-axis: Paradox scores as a trend line over time
     
+    The plot shows INCREMENTAL/CUMULATIVE data - each time point includes all data
+    from the simulation start up to that point, showing how the paradox evolves
+    as more data accumulates.
+    
     :param results: dict, output from visibility_paradox_temporal containing:
         - 'time_points': list of (day, hour, round_id) tuples
         - 'p_values': array of p-values for statistical significance
-        - 'paradox_scores': array of paradox scores over time
+        - 'paradox_scores': array of paradox scores over time (cumulative)
         - 'temporal_granularity': tuple of (days, hours) used
     :return: matplotlib figure
     
@@ -346,6 +350,7 @@ def paradox_temporal_evolution(results):
         >>> ydh = YDataHandler('path/to/database.db')
         >>> network = ydh.social_network()
         >>> 
+        >>> # Compute incremental paradox evolution
         >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(1, 0), N=50)
         >>> fig = paradox_temporal_evolution(results)
         >>> fig.show()
@@ -428,7 +433,7 @@ def paradox_temporal_evolution(results):
     
     # Set title
     gran_str = f"{temporal_granularity[0]}d {temporal_granularity[1]}h" if temporal_granularity[0] > 0 else f"{temporal_granularity[1]}h"
-    plt.title(f'Visibility Paradox Temporal Evolution (Window: {gran_str})', 
+    plt.title(f'Visibility Paradox Temporal Evolution - INCREMENTAL (Interval: {gran_str})', 
               fontsize=14, pad=20)
     
     plt.tight_layout()

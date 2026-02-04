@@ -1,13 +1,23 @@
 """
-Example: Temporal Dynamics of the Visibility Paradox
-=====================================================
+Example: Temporal Dynamics of the Visibility Paradox (INCREMENTAL)
+==================================================================
 
 This example demonstrates how to track the visibility paradox over time
-with user-defined temporal granularity.
+with user-defined temporal granularity using INCREMENTAL/CUMULATIVE computation.
 
-The temporal analysis reveals how the paradox evolves during the simulation,
-showing both the paradox score and its statistical significance at regular
-time intervals.
+IMPORTANT: The temporal analysis uses INCREMENTAL computation - each time point
+includes ALL data from the start of the simulation up to that point. This shows
+how the paradox evolves and strengthens (or weakens) as more data accumulates
+over time.
+
+For example, with daily granularity:
+- Day 1: Uses all data from start to day 1
+- Day 2: Uses all data from start to day 2
+- Day 3: Uses all data from start to day 3
+... and so on.
+
+This approach reveals the temporal dynamics of the paradox as the network
+and content grow over time.
 """
 
 from ysights import YDataHandler
@@ -18,23 +28,27 @@ from ysights.viz import paradox_temporal_evolution
 ydh = YDataHandler('path/to/your/database.db')
 network = ydh.social_network()
 
-print("Computing temporal evolution of visibility paradox...")
+print("Computing INCREMENTAL temporal evolution of visibility paradox...")
+print("Each time point uses all data from the start up to that point.")
 print("This may take several minutes depending on simulation length...")
 
-# Example 1: Track paradox every day
-# ----------------------------------------
-# This creates time windows of 1 day (24 hours)
-print("\n1. Computing paradox evolution with 1-day granularity...")
+# Example 1: Track paradox every day (INCREMENTAL)
+# ------------------------------------------------
+# Each day uses all data from start to that day
+print("\n1. Computing paradox evolution with 1-day granularity (INCREMENTAL)...")
 results_daily = visibility_paradox_temporal(
     ydh, 
     network, 
-    temporal_granularity=(1, 0),  # 1 day, 0 hours
-    N=50  # Number of null models per time window
+    temporal_granularity=(1, 0),  # Compute every 1 day
+    N=50  # Number of null models per time point
 )
 
-print(f"   Computed paradox for {len(results_daily['time_points'])} time windows")
-print(f"   First window: Day {results_daily['time_points'][0][0]}, Hour {results_daily['time_points'][0][1]}")
-print(f"   First paradox score: {results_daily['paradox_scores'][0]:.4f}")
+print(f"   Computed paradox for {len(results_daily['time_points'])} time points")
+print(f"   First time point: Day {results_daily['time_points'][0][0]}, Hour {results_daily['time_points'][0][1]}")
+print(f"   First paradox score (data from start to day {results_daily['time_points'][0][0]}): {results_daily['paradox_scores'][0]:.4f}")
+if len(results_daily['time_points']) > 1:
+    print(f"   Last time point: Day {results_daily['time_points'][-1][0]}, Hour {results_daily['time_points'][-1][1]}")
+    print(f"   Last paradox score (data from start to day {results_daily['time_points'][-1][0]}): {results_daily['paradox_scores'][-1]:.4f}")
 
 # Create and display visualization
 fig = paradox_temporal_evolution(results_daily)
@@ -42,18 +56,18 @@ fig.savefig('paradox_temporal_daily.png', dpi=150, bbox_inches='tight')
 print("   Visualization saved to 'paradox_temporal_daily.png'")
 
 
-# Example 2: Track paradox every 12 hours
-# ----------------------------------------
-# This creates time windows of 12 hours for finer temporal resolution
-print("\n2. Computing paradox evolution with 12-hour granularity...")
+# Example 2: Track paradox every 12 hours (INCREMENTAL)
+# -----------------------------------------------------
+# Each 12-hour point uses all data from start to that point
+print("\n2. Computing paradox evolution with 12-hour granularity (INCREMENTAL)...")
 results_12h = visibility_paradox_temporal(
     ydh,
     network,
-    temporal_granularity=(0, 12),  # 0 days, 12 hours
+    temporal_granularity=(0, 12),  # Compute every 12 hours
     N=50
 )
 
-print(f"   Computed paradox for {len(results_12h['time_points'])} time windows")
+print(f"   Computed paradox for {len(results_12h['time_points'])} time points")
 
 # Create and display visualization
 fig = paradox_temporal_evolution(results_12h)
@@ -61,17 +75,17 @@ fig.savefig('paradox_temporal_12h.png', dpi=150, bbox_inches='tight')
 print("   Visualization saved to 'paradox_temporal_12h.png'")
 
 
-# Example 3: Custom granularity - every 26 hours (1 day + 2 hours)
-# ----------------------------------------------------------------
-print("\n3. Computing paradox evolution with custom 26-hour granularity...")
+# Example 3: Custom granularity - every 26 hours (INCREMENTAL)
+# -----------------------------------------------------------
+print("\n3. Computing paradox evolution with custom 26-hour granularity (INCREMENTAL)...")
 results_26h = visibility_paradox_temporal(
     ydh,
     network,
-    temporal_granularity=(1, 2),  # 1 day + 2 hours = 26 hours
+    temporal_granularity=(1, 2),  # Compute every 1 day + 2 hours = 26 hours
     N=50
 )
 
-print(f"   Computed paradox for {len(results_26h['time_points'])} time windows")
+print(f"   Computed paradox for {len(results_26h['time_points'])} time points")
 
 # Create and display visualization
 fig = paradox_temporal_evolution(results_26h)
