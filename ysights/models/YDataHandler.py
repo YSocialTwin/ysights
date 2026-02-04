@@ -394,6 +394,55 @@ class YDataHandler:
         else:
             raise ValueError(f"No round found for day {day} and hour {hour}.")
 
+    @_handle_db_connection
+    def get_rounds_in_time_range(self, start_day, start_hour, end_day, end_hour):
+        """
+        Get all round IDs within a specified time range.
+
+        Returns round IDs for all rounds that fall between the start and end times
+        (inclusive), based on day and hour fields. This is useful for filtering
+        data by temporal windows when round IDs may not be sequential.
+
+        :param start_day: Starting day (inclusive)
+        :type start_day: int
+        :param start_hour: Starting hour (inclusive)
+        :type start_hour: int
+        :param end_day: Ending day (inclusive)
+        :type end_day: int
+        :param end_hour: Ending hour (inclusive)
+        :type end_hour: int
+        :return: List of round IDs within the time range
+        :rtype: list
+
+        Example::
+
+            ydh = YDataHandler('path/to/database.db')
+
+            # Get all rounds between day 5, hour 10 and day 7, hour 15
+            round_ids = ydh.get_rounds_in_time_range(
+                start_day=5, start_hour=10,
+                end_day=7, end_hour=15
+            )
+            print(f"Found {len(round_ids)} rounds in time range")
+
+            # Use for filtering posts
+            posts_in_range = [p for p in all_posts if p.round in round_ids]
+
+        Note:
+            This method correctly handles non-sequential round IDs (e.g., UUIDs)
+            by using the day/hour fields for temporal ordering.
+        """
+        query = """
+            SELECT id FROM rounds 
+            WHERE (day > ? OR (day = ? AND hour >= ?))
+            AND (day < ? OR (day = ? AND hour <= ?))
+        """
+        data = self.__execute_query(
+            query, 
+            (start_day, start_day, start_hour, end_day, end_day, end_hour)
+        )
+        return [row[0] for row in data]
+
     # Agents and Posts methods
     @_handle_db_connection
     def number_of_agents(self):
