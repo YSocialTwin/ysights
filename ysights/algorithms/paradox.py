@@ -822,16 +822,35 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
         # Get data for this time window
         # Note: We use the full network graph but filter posts/recommendations by time
         try:
+            # Get all round IDs within this time window (to handle non-sequential IDs)
+            query_rounds = """
+                SELECT id FROM rounds 
+                WHERE (day > ? OR (day = ? AND hour >= ?))
+                AND (day < ? OR (day = ? AND hour <= ?))
+            """
+            round_ids_data = YDH._YDataHandler__execute_query(
+                query_rounds, 
+                (current_day, current_day, current_hour, end_window_day, end_window_day, end_window_hour)
+            )
+            if not round_ids_data:
+                # No rounds in this window, skip
+                current_hour += granularity_hours
+                current_day += current_hour // 24
+                current_hour = current_hour % 24
+                continue
+            
+            valid_round_ids = {row[0] for row in round_ids_data}
+            
             # Extract posts for this time window
             all_posts = YDH.posts()
             post_recs, user_to_posts_read = YDH.recommendations_per_post_per_user()
             
-            # Filter posts by time window
+            # Filter posts by time window using round ID set
             user_to_posts = {}
             post_to_users = {}
             for pts in all_posts.get_posts():
-                # Check if post is within time window
-                if hasattr(pts, 'round') and from_round <= pts.round <= to_round:
+                # Check if post is within time window by checking if round ID is in valid set
+                if hasattr(pts, 'round') and pts.round in valid_round_ids:
                     try:
                         pts.user_id = int(pts.user_id)
                         pts.id = int(pts.id)
