@@ -65,7 +65,7 @@ from .global_trends import (
     trending_emotions,
     trending_hashtags,
 )
-from .paradox_viz import paradox_density_scatter, paradox_histogram, paradox_size_impact
+from .paradox_viz import paradox_density_scatter, paradox_histogram, paradox_size_impact, paradox_significance_per_degree_class
 from .profiles_viz import (
     binned_similarity_per_degree,
     profile_similarity_distribution,

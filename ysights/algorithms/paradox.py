@@ -525,3 +525,198 @@ def visibility_paradox_population_size_null(
         results[fraction] = __visibility_paradox_sub_population(YDH, g, N=N, x=fraction)
 
     return results
+
+
+def __stats_with_degrees(users_to_impressions_total, user_to_posts_read, user_to_posts, g):
+    """
+    Calculate the visibility paradox metric for each user in the graph along with their degree.
+    
+    :param users_to_impressions_total: the total number of impressions for each user
+    :param user_to_posts_read: the posts suggested to each user
+    :param user_to_posts: the posts associated with each user
+    :param g: the social network graph
+    :return: tuple of (list of coefficients, list of degrees, list of node ids)
+    """
+    
+    delta = []
+    degrees = []
+    node_ids = []
+    for n in g.nodes():
+        if n in users_to_impressions_total:
+            read = {pid: None for pid in set(user_to_posts_read[n])}
+            scores = []
+            for v in g.neighbors(n):
+                # cicla sui post di v e conta se compaiono in user_to_posts_read
+                p_tot = 0
+                
+                # quanti contenuti del mio vicino mi sono stati suggeriti
+                if v in user_to_posts:
+                    for post in user_to_posts[v]:
+                        if post in read:
+                            p_tot += 1
+                
+                # quanti miei contenuti sono stati suggeriti al mio vicino
+                v_tot = 0
+                v_read = {pid: None for pid in set(user_to_posts_read[v])}
+                if n in user_to_posts:
+                    for post in user_to_posts[n]:
+                        if post in v_read:
+                            v_tot += 1
+                
+                # suggerimenti ricevuti - suggerimenti dei miei contenuti
+                scores.append(p_tot - v_tot)
+            
+            node_degree = nx.degree(g, n)
+            delta.append((1 / node_degree) * sum(scores))
+            degrees.append(node_degree)
+            node_ids.append(n)
+    
+    return delta, degrees, node_ids
+
+
+def visibility_paradox_per_degree_class(YDH: YDataHandler, g, N=100, bins=None, num_bins=10):
+    """
+    Calculate the statistical significance of the visibility paradox per degree class.
+    
+    This function computes the paradox score and its statistical significance for each 
+    degree class (bin) of nodes. By default, it uses linear binning but allows users 
+    to specify custom bin edges.
+    
+    :param YDH: YDataHandler, the data handler containing the YSocial simulation data
+    :param g: networkx.Graph, the social network graph
+    :param N: int, number of null models to generate for statistical testing
+    :param bins: array-like, optional bin edges for degree binning. If None, linear bins are created.
+    :param num_bins: int, number of bins to create if bins is None (default: 10)
+    :return: dict with keys:
+        - 'bin_edges': array of bin edges
+        - 'bin_centers': array of bin centers for plotting
+        - 'paradox_scores': average paradox score per bin
+        - 'z_scores': z-score per bin (statistical significance)
+        - 'p_values': p-value per bin
+        - 'bin_counts': number of nodes in each bin
+    
+    Example:
+        >>> from ysights import YDataHandler
+        >>> from ysights.algorithms.paradox import visibility_paradox_per_degree_class
+        >>> 
+        >>> ydh = YDataHandler('path/to/database.db')
+        >>> network = ydh.social_network()
+        >>> 
+        >>> # Using default linear binning
+        >>> results = visibility_paradox_per_degree_class(ydh, network, N=100, num_bins=10)
+        >>> 
+        >>> # Using custom bin edges
+        >>> custom_bins = [0, 5, 10, 20, 50, 100]
+        >>> results = visibility_paradox_per_degree_class(ydh, network, N=100, bins=custom_bins)
+    """
+    
+    post_recs, user_to_posts_read = YDH.recommendations_per_post_per_user()
+    posts = YDH.posts()
+    
+    post_to_users = {}
+    user_to_posts = {}
+    for pts in posts.get_posts():
+        try:
+            pts.user_id = int(pts.user_id)
+            pts.id = int(pts.id)
+        except Exception:
+            pass
+        
+        if pts.user_id not in user_to_posts:
+            user_to_posts[pts.user_id] = [pts.id]
+        else:
+            user_to_posts[pts.user_id].append(pts.id)
+        post_to_users[pts.id] = pts.user_id
+    
+    users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
+    users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
+    
+    # Get coefficients with degrees for the observed data
+    nodes_coeffs, node_degrees, node_ids = __stats_with_degrees(
+        users_to_impressions_total, user_to_posts_read, user_to_posts, g
+    )
+    
+    # Create bins if not provided (linear binning by default)
+    if bins is None:
+        min_deg = min(node_degrees) if node_degrees else 0
+        max_deg = max(node_degrees) if node_degrees else 1
+        bins = np.linspace(min_deg, max_deg, num_bins + 1)
+    
+    bins = np.array(bins)
+    
+    # Bin the observed data
+    bin_indices = np.digitize(node_degrees, bins) - 1
+    
+    # Initialize result containers
+    paradox_scores = []
+    z_scores = []
+    p_values = []
+    bin_counts = []
+    bin_centers = []
+    
+    # Generate null models
+    if N > 0:
+        user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
+            user_to_posts, N, x=1
+        )
+        
+        # Collect null distributions for each bin
+        null_distributions = defaultdict(list)
+        
+        for i in range(len(user_to_posts_list)):
+            u_to_p_n = user_to_posts_list[i]
+            users_to_impressions_n = __user_impressions_mapping(post_recs, u_to_p_n)
+            coeffs_null, degrees_null, _ = __stats_with_degrees(
+                users_to_impressions_n, user_to_posts_read, u_to_p_n, g
+            )
+            
+            # Bin the null data using the same bins
+            bin_indices_null = np.digitize(degrees_null, bins) - 1
+            
+            # Aggregate by bin
+            for bin_idx in range(len(bins) - 1):
+                mask = bin_indices_null == bin_idx
+                if np.any(mask):
+                    null_distributions[bin_idx].append(
+                        np.mean([coeffs_null[j] for j in range(len(coeffs_null)) if mask[j]])
+                    )
+    
+    # Compute statistics per bin
+    for bin_idx in range(len(bins) - 1):
+        mask = np.array(bin_indices) == bin_idx
+        bin_coeffs = [nodes_coeffs[i] for i in range(len(nodes_coeffs)) if mask[i]]
+        
+        if len(bin_coeffs) > 0:
+            observed_mean = np.mean(bin_coeffs)
+            paradox_scores.append(observed_mean)
+            bin_counts.append(len(bin_coeffs))
+            bin_centers.append((bins[bin_idx] + bins[bin_idx + 1]) / 2)
+            
+            if N > 0 and bin_idx in null_distributions and len(null_distributions[bin_idx]) > 0:
+                try:
+                    z_score, p_value = __z_test(observed_mean, null_distributions[bin_idx])
+                    z_scores.append(z_score)
+                    p_values.append(p_value)
+                except ValueError:
+                    # Handle case where standard deviation is zero
+                    z_scores.append(np.nan)
+                    p_values.append(np.nan)
+            else:
+                z_scores.append(np.nan)
+                p_values.append(np.nan)
+        else:
+            # Empty bin
+            paradox_scores.append(np.nan)
+            z_scores.append(np.nan)
+            p_values.append(np.nan)
+            bin_counts.append(0)
+            bin_centers.append((bins[bin_idx] + bins[bin_idx + 1]) / 2)
+    
+    return {
+        'bin_edges': bins,
+        'bin_centers': np.array(bin_centers),
+        'paradox_scores': np.array(paradox_scores),
+        'z_scores': np.array(z_scores),
+        'p_values': np.array(p_values),
+        'bin_counts': np.array(bin_counts),
+    }
