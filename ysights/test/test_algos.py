@@ -5,6 +5,7 @@ from ysights.algorithms.paradox import (
     visibility_paradox,
     visibility_paradox_population_size_null,
     visibility_paradox_per_degree_class,
+    visibility_paradox_temporal,
 )
 from ysights.algorithms.profiles import profile_topics_similarity
 from ysights.models.YDataHandler import YDataHandler
@@ -91,3 +92,38 @@ class AlgosTestCase(unittest.TestCase):
         results = profile_topics_similarity(handler, network)
         self.assertIsInstance(results, dict)
         print(results)
+
+    def test_paradox_temporal(self):
+        handler = self.get_data_handler()
+        network = handler.social_network()
+
+        # Test with 1 day granularity
+        results = visibility_paradox_temporal(handler, network, temporal_granularity=(1, 0), N=5)
+        self.assertIsInstance(results, dict)
+        self.assertIn("time_points", results)
+        self.assertIn("paradox_scores", results)
+        self.assertIn("z_scores", results)
+        self.assertIn("p_values", results)
+        self.assertIn("temporal_granularity", results)
+        
+        # Check that arrays have expected properties
+        self.assertEqual(len(results["time_points"]), len(results["paradox_scores"]))
+        self.assertEqual(len(results["paradox_scores"]), len(results["z_scores"]))
+        self.assertEqual(len(results["z_scores"]), len(results["p_values"]))
+        
+        print(f"Temporal paradox computed for {len(results['time_points'])} time windows")
+        print(f"Temporal granularity: {results['temporal_granularity']}")
+        if len(results['time_points']) > 0:
+            print(f"First time point: Day {results['time_points'][0][0]}, Hour {results['time_points'][0][1]}")
+            print(f"First paradox score: {results['paradox_scores'][0]:.4f}")
+
+    def test_paradox_temporal_custom_granularity(self):
+        handler = self.get_data_handler()
+        network = handler.social_network()
+
+        # Test with 12 hour granularity
+        results = visibility_paradox_temporal(handler, network, temporal_granularity=(0, 12), N=5)
+        self.assertIsInstance(results, dict)
+        self.assertEqual(results['temporal_granularity'], (0, 12))
+        
+        print(f"Custom granularity (12h) - Time windows: {len(results['time_points'])}")

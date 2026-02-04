@@ -724,3 +724,188 @@ def visibility_paradox_per_degree_class(YDH: YDataHandler, g, N=100, bins=None, 
         'p_values': np.array(p_values),
         'bin_counts': np.array(bin_counts),
     }
+
+
+def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0), N=100):
+    """
+    Calculate the visibility paradox over time with user-defined temporal granularity.
+    
+    This function tracks how the visibility paradox evolves during the simulation by
+    computing the paradox score at regular time intervals. The temporal granularity
+    is specified as a (day, hour) tuple defining the time window size.
+    
+    :param YDH: YDataHandler, the data handler containing the YSocial simulation data
+    :param g: networkx.Graph, the social network graph (can be full network or time-specific)
+    :param temporal_granularity: tuple of (days, hours) defining the time window
+                                  e.g., (1, 0) = 1 day windows, (0, 12) = 12 hour windows,
+                                  (1, 2) = 26 hour windows (1 day + 2 hours)
+    :param N: int, number of null models to generate for statistical testing per time window
+    :return: dict with keys:
+        - 'time_points': list of (day, hour, round_id) tuples marking each time window
+        - 'paradox_scores': array of paradox scores over time
+        - 'z_scores': array of z-scores over time
+        - 'p_values': array of p-values over time
+        - 'temporal_granularity': the temporal granularity used (days, hours)
+    
+    Example:
+        >>> from ysights import YDataHandler
+        >>> from ysights.algorithms.paradox import visibility_paradox_temporal
+        >>> 
+        >>> ydh = YDataHandler('path/to/database.db')
+        >>> network = ydh.social_network()
+        >>> 
+        >>> # Compute paradox every day
+        >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(1, 0), N=50)
+        >>> 
+        >>> # Compute paradox every 12 hours
+        >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(0, 12), N=50)
+        >>> 
+        >>> # Compute paradox every 26 hours (1 day + 2 hours)
+        >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(1, 2), N=50)
+    """
+    
+    days_inc, hours_inc = temporal_granularity
+    
+    # Validate temporal granularity
+    if days_inc < 0 or hours_inc < 0:
+        raise ValueError("Temporal granularity values must be non-negative")
+    if days_inc == 0 and hours_inc == 0:
+        raise ValueError("Temporal granularity must be positive (at least one of days or hours must be > 0)")
+    
+    # Get time range from simulation
+    time_range = YDH.time_range()
+    min_round = time_range['min_round']
+    max_round = time_range['max_round']
+    
+    # Convert min and max rounds to time
+    start_time = YDH.round_to_time(min_round)
+    end_time = YDH.round_to_time(max_round)
+    
+    start_day = start_time['day']
+    start_hour = start_time['hour']
+    end_day = end_time['day']
+    end_hour = end_time['hour']
+    
+    # Convert temporal granularity to hours for easier calculation
+    granularity_hours = days_inc * 24 + hours_inc
+    
+    # Generate time windows
+    time_points = []
+    paradox_scores = []
+    z_scores = []
+    p_values = []
+    
+    current_day = start_day
+    current_hour = start_hour
+    
+    while True:
+        # Calculate end of current window
+        end_window_hour = current_hour + granularity_hours
+        end_window_day = current_day + (end_window_hour // 24)
+        end_window_hour = end_window_hour % 24
+        
+        # Check if we've passed the simulation end
+        if end_window_day > end_day or (end_window_day == end_day and end_window_hour > end_hour):
+            break
+        
+        try:
+            # Get round IDs for this time window
+            from_round = YDH.time_to_round(current_day, current_hour)
+            to_round = YDH.time_to_round(end_window_day, end_window_hour)
+        except ValueError:
+            # If exact time doesn't exist, skip this window
+            current_hour += granularity_hours
+            current_day += current_hour // 24
+            current_hour = current_hour % 24
+            continue
+        
+        # Get data for this time window
+        # Note: We use the full network graph but filter posts/recommendations by time
+        try:
+            # Extract posts for this time window
+            all_posts = YDH.posts()
+            post_recs, user_to_posts_read = YDH.recommendations_per_post_per_user()
+            
+            # Filter posts by time window
+            user_to_posts = {}
+            post_to_users = {}
+            for pts in all_posts.get_posts():
+                # Check if post is within time window
+                if hasattr(pts, 'round') and from_round <= pts.round <= to_round:
+                    try:
+                        pts.user_id = int(pts.user_id)
+                        pts.id = int(pts.id)
+                    except Exception:
+                        pass
+                    
+                    if pts.user_id not in user_to_posts:
+                        user_to_posts[pts.user_id] = [pts.id]
+                    else:
+                        user_to_posts[pts.user_id].append(pts.id)
+                    post_to_users[pts.id] = pts.user_id
+            
+            # If no posts in this window, skip
+            if len(user_to_posts) == 0:
+                current_hour += granularity_hours
+                current_day += current_hour // 24
+                current_hour = current_hour % 24
+                continue
+            
+            users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
+            users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
+            
+            # Compute paradox for this window
+            nodes_coeffs = __stats(
+                users_to_impressions_total, user_to_posts_read, user_to_posts, g
+            )
+            
+            if len(nodes_coeffs) == 0:
+                # Skip if no coefficients could be computed
+                current_hour += granularity_hours
+                current_day += current_hour // 24
+                current_hour = current_hour % 24
+                continue
+            
+            paradox_score = np.mean(nodes_coeffs)
+            
+            # Generate null models for this window
+            if N > 0:
+                user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
+                    user_to_posts, N, x=1
+                )
+                null_means_dist = []
+                for i in range(len(user_to_posts_list)):
+                    u_to_p_n = user_to_posts_list[i]
+                    users_to_impressions_n = __user_impressions_mapping(post_recs, u_to_p_n)
+                    mean = np.mean(
+                        __stats(users_to_impressions_n, user_to_posts_read, u_to_p_n, g)
+                    )
+                    null_means_dist.append(mean)
+                
+                z_score, p_value = __z_test(paradox_score, null_means_dist)
+            else:
+                z_score = None
+                p_value = None
+            
+            # Record results
+            time_points.append((current_day, current_hour, from_round))
+            paradox_scores.append(paradox_score)
+            z_scores.append(z_score)
+            p_values.append(p_value)
+            
+        except Exception as e:
+            # Skip windows that cause errors
+            print(f"Warning: Error computing paradox for window starting at day {current_day}, hour {current_hour}: {e}")
+        
+        # Move to next window
+        current_hour += granularity_hours
+        current_day += current_hour // 24
+        current_hour = current_hour % 24
+    
+    return {
+        'time_points': time_points,
+        'paradox_scores': np.array(paradox_scores),
+        'z_scores': np.array(z_scores),
+        'p_values': np.array(p_values),
+        'temporal_granularity': temporal_granularity,
+    }

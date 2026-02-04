@@ -321,3 +321,116 @@ def paradox_significance_per_degree_class(results):
     plt.tight_layout()
     
     return fig
+
+
+def paradox_temporal_evolution(results):
+    """
+    Visualize the temporal evolution of the visibility paradox.
+    
+    This function creates a dual-axis plot showing:
+    - Left y-axis: Statistical significance (p-values) as a trend line over time
+    - Right y-axis: Paradox scores as a trend line over time
+    
+    :param results: dict, output from visibility_paradox_temporal containing:
+        - 'time_points': list of (day, hour, round_id) tuples
+        - 'p_values': array of p-values for statistical significance
+        - 'paradox_scores': array of paradox scores over time
+        - 'temporal_granularity': tuple of (days, hours) used
+    :return: matplotlib figure
+    
+    Example:
+        >>> from ysights import YDataHandler
+        >>> from ysights.algorithms.paradox import visibility_paradox_temporal
+        >>> from ysights.viz import paradox_temporal_evolution
+        >>> 
+        >>> ydh = YDataHandler('path/to/database.db')
+        >>> network = ydh.social_network()
+        >>> 
+        >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(1, 0), N=50)
+        >>> fig = paradox_temporal_evolution(results)
+        >>> fig.show()
+    """
+    
+    time_points = results['time_points']
+    p_values = results['p_values']
+    paradox_scores = results['paradox_scores']
+    temporal_granularity = results['temporal_granularity']
+    
+    # Extract time labels (use day as primary time unit)
+    time_labels = [f"D{day}H{hour}" for day, hour, _ in time_points]
+    time_indices = np.arange(len(time_points))
+    
+    # Filter out NaN values
+    valid_p_values = ~np.isnan(p_values)
+    valid_scores = ~np.isnan(paradox_scores)
+    mask = valid_p_values & valid_scores
+    
+    time_indices_clean = time_indices[mask]
+    p_values_clean = p_values[mask]
+    paradox_scores_clean = paradox_scores[mask]
+    time_labels_clean = [time_labels[i] for i in range(len(time_labels)) if mask[i]]
+    
+    # Create figure with dual y-axes
+    fig, ax1 = plt.subplots(figsize=(12, 6))
+    
+    # Plot p-values on the left y-axis
+    color1 = '#d62728'  # red
+    ax1.set_xlabel('Time (Day/Hour)', fontsize=12)
+    ax1.set_ylabel('Statistical Significance (p-value)', color=color1, fontsize=12)
+    line1 = ax1.plot(time_indices_clean, p_values_clean, 'o-', color=color1, 
+                      linewidth=2, markersize=5, label='P-value', alpha=0.8)
+    ax1.tick_params(axis='y', labelcolor=color1)
+    ax1.set_yscale('log')
+    
+    # Add significance threshold lines
+    ax1.axhline(y=0.05, color='red', linestyle='--', linewidth=1, alpha=0.5, label='p=0.05')
+    ax1.axhline(y=0.01, color='orange', linestyle='--', linewidth=1, alpha=0.5, label='p=0.01')
+    ax1.axhline(y=0.001, color='green', linestyle='--', linewidth=1, alpha=0.5, label='p=0.001')
+    
+    # Add shaded regions for significance levels
+    y_lim = ax1.get_ylim()
+    ax1.axhspan(0.05, y_lim[1], facecolor='red', alpha=0.05)
+    ax1.axhspan(0.01, 0.05, facecolor='orange', alpha=0.1)
+    ax1.axhspan(0.001, 0.01, facecolor='yellow', alpha=0.05)
+    ax1.axhspan(y_lim[0], 0.001, facecolor='green', alpha=0.05)
+    
+    # Plot paradox scores on the right y-axis
+    ax2 = ax1.twinx()
+    color2 = '#1f77b4'  # blue
+    ax2.set_ylabel('Paradox Score', color=color2, fontsize=12)
+    line2 = ax2.plot(time_indices_clean, paradox_scores_clean, 's-', color=color2, 
+                      linewidth=2, markersize=5, label='Paradox Score', alpha=0.8)
+    ax2.tick_params(axis='y', labelcolor=color2)
+    
+    # Add zero line for paradox score
+    ax2.axhline(y=0, color=color2, linestyle=':', linewidth=1, alpha=0.3)
+    
+    # Style the spines
+    ax1.spines['top'].set_visible(False)
+    ax2.spines['top'].set_visible(False)
+    ax1.spines['left'].set_color(color1)
+    ax2.spines['right'].set_color(color2)
+    
+    # Add grid
+    ax1.grid(True, alpha=0.3, linestyle='--')
+    
+    # Set x-axis ticks (show every Nth label to avoid crowding)
+    step = max(1, len(time_indices_clean) // 10)
+    ax1.set_xticks(time_indices_clean[::step])
+    ax1.set_xticklabels([time_labels_clean[i] for i in range(0, len(time_labels_clean), step)], 
+                        rotation=45, ha='right')
+    
+    # Combine legends from both axes
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, 
+               loc='upper right', fontsize=9, framealpha=0.9)
+    
+    # Set title
+    gran_str = f"{temporal_granularity[0]}d {temporal_granularity[1]}h" if temporal_granularity[0] > 0 else f"{temporal_granularity[1]}h"
+    plt.title(f'Visibility Paradox Temporal Evolution (Window: {gran_str})', 
+              fontsize=14, pad=20)
+    
+    plt.tight_layout()
+    
+    return fig

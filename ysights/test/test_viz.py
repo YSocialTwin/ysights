@@ -65,6 +65,18 @@ class VizTestCase(unittest.TestCase):
         pl = viz.paradox_significance_per_degree_class(results)
         self.assertIsInstance(pl, plt.Figure)
 
+    def test_paradox_temporal_evolution(self):
+        handler = self.get_data_handler()
+        network = handler.social_network()
+
+        # Test with a small number of windows and null models for speed
+        results = algorithms.visibility_paradox_temporal(
+            handler, network, temporal_granularity=(1, 0), N=5
+        )
+
+        pl = viz.paradox_temporal_evolution(results)
+        self.assertIsInstance(pl, plt.Figure)
+
     def test_profile_similarity_distribution(self):
         handler = self.get_data_handler()
         network = handler.social_network()

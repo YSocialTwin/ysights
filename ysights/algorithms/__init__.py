@@ -46,6 +46,7 @@ from .paradox import (
     visibility_paradox,
     visibility_paradox_population_size_null,
     visibility_paradox_per_degree_class,
+    visibility_paradox_temporal,
 )
 from .profiles import profile_topics_similarity
 from .recommenders import (
