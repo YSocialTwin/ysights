@@ -675,16 +675,16 @@ def visibility_paradox_per_degree_class(YDH: YDataHandler, g, N=100, bins=None, 
             
             # Aggregate by bin
             for bin_idx in range(len(bins) - 1):
-                mask = bin_indices_null == bin_idx
-                if np.any(mask):
-                    null_distributions[bin_idx].append(
-                        np.mean([coeffs_null[j] for j in range(len(coeffs_null)) if mask[j]])
-                    )
+                bin_mask = bin_indices_null == bin_idx
+                if np.any(bin_mask):
+                    # Get coefficients for this bin and compute mean
+                    bin_coeffs_null = np.array(coeffs_null)[bin_mask]
+                    null_distributions[bin_idx].append(np.mean(bin_coeffs_null))
     
     # Compute statistics per bin
     for bin_idx in range(len(bins) - 1):
-        mask = np.array(bin_indices) == bin_idx
-        bin_coeffs = [nodes_coeffs[i] for i in range(len(nodes_coeffs)) if mask[i]]
+        bin_mask = np.array(bin_indices) == bin_idx
+        bin_coeffs = np.array(nodes_coeffs)[bin_mask]
         
         if len(bin_coeffs) > 0:
             observed_mean = np.mean(bin_coeffs)

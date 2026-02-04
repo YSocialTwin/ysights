@@ -64,7 +64,6 @@ class VizTestCase(unittest.TestCase):
 
         pl = viz.paradox_significance_per_degree_class(results)
         self.assertIsInstance(pl, plt.Figure)
-        # Don't show in tests: pl.show()
 
     def test_profile_similarity_distribution(self):
         handler = self.get_data_handler()

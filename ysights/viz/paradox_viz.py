@@ -259,7 +259,11 @@ def paradox_significance_per_degree_class(results):
     bin_counts = results['bin_counts']
     
     # Filter out NaN values and empty bins
-    mask = ~(np.isnan(p_values) | np.isnan(paradox_scores) | (bin_counts == 0))
+    valid_p_values = ~np.isnan(p_values)
+    valid_scores = ~np.isnan(paradox_scores)
+    non_empty_bins = bin_counts > 0
+    mask = valid_p_values & valid_scores & non_empty_bins
+    
     bin_centers_clean = bin_centers[mask]
     p_values_clean = p_values[mask]
     paradox_scores_clean = paradox_scores[mask]
