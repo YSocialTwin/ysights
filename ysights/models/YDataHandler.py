@@ -290,7 +290,9 @@ class YDataHandler:
         Retrieve the time range covered by the simulation.
 
         Returns the minimum and maximum round IDs present in the database,
-        representing the temporal extent of the simulation data.
+        representing the temporal extent of the simulation data. Uses day and hour
+        fields to determine the earliest and latest rounds (not round IDs which may
+        be non-sequential UUIDs).
 
         :return: Dictionary with 'min_round' and 'max_round' keys
         :rtype: dict
@@ -305,12 +307,30 @@ class YDataHandler:
             print(f"Simulation ends at round: {time_info['max_round']}")
             print(f"Total rounds: {time_info['max_round'] - time_info['min_round'] + 1}")
         """
-        query = "SELECT MIN(id), MAX(id) FROM rounds"
-        data = self.__execute_query(query)
-        if data and data[0]:
-            return {"min_round": data[0][0], "max_round": data[0][1]}
-        else:
+        # Find the earliest round (minimum day, and minimum hour for that day)
+        query_min_day = "SELECT MIN(day) FROM rounds"
+        data = self.__execute_query(query_min_day)
+        if not data or data[0][0] is None:
             raise ValueError("No rounds found in the database.")
+        
+        min_day = data[0][0]
+        query_min_round = "SELECT id FROM rounds WHERE day = ? ORDER BY hour ASC LIMIT 1"
+        data = self.__execute_query(query_min_round, (min_day,))
+        if not data:
+            raise ValueError("No rounds found in the database.")
+        min_round = data[0][0]
+        
+        # Find the latest round (maximum day, and maximum hour for that day)
+        query_max_day = "SELECT MAX(day) FROM rounds"
+        data = self.__execute_query(query_max_day)
+        max_day = data[0][0]
+        query_max_round = "SELECT id FROM rounds WHERE day = ? ORDER BY hour DESC LIMIT 1"
+        data = self.__execute_query(query_max_round, (max_day,))
+        if not data:
+            raise ValueError("No rounds found in the database.")
+        max_round = data[0][0]
+        
+        return {"min_round": min_round, "max_round": max_round}
 
     @_handle_db_connection
     def round_to_time(self, round_id):
