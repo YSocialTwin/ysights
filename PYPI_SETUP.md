@@ -92,7 +92,7 @@ Publishing to main PyPI happens automatically when you create a release:
 
 1. Go to your repository on GitHub
 2. Click on "Releases" → "Create a new release"
-3. Choose or create a tag (e.g., `v0.1.1`)
+3. Choose or create a tag (e.g., `v0.2.0`)
 4. Fill in release title and description
 5. Click "Publish release"
 
