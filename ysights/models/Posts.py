@@ -14,15 +14,16 @@ class Post:
                 [id, text, ?, user_id, comment_to, thread_id, round, news_id, shared_from, image_id]
     :type row: tuple
 
-    :ivar int id: Unique identifier for the post
+    :ivar id: Unique identifier for the post. May be an int or a UUID/string
+        token depending on the database schema.
     :ivar str text: The text content of the post
-    :ivar int user_id: ID of the agent who created the post
-    :ivar int comment_to: ID of the post this is commenting on (None if not a comment)
-    :ivar int thread_id: ID of the thread this post belongs to
+    :ivar user_id: Identifier of the agent who created the post
+    :ivar comment_to: Identifier of the post this is commenting on (None if not a comment)
+    :ivar thread_id: Identifier of the thread this post belongs to
     :ivar int round: Simulation round when the post was created
-    :ivar int news_id: ID of the news article this post references (if applicable)
-    :ivar int shared_from: ID of the original post if this is a share
-    :ivar int image_id: ID of the attached image (if applicable)
+    :ivar news_id: Identifier of the news article this post references (if applicable)
+    :ivar shared_from: Identifier of the original post if this is a share
+    :ivar image_id: Identifier of the attached image (if applicable)
     :ivar dict sentiment: Sentiment analysis scores (neg, pos, neu, compound)
     :ivar list hashtags: List of hashtags used in the post
     :ivar list topics: List of topics associated with the post
@@ -38,7 +39,7 @@ class Post:
             from ysights import YDataHandler
 
             # Example database row
-            row = (123, 'Hello world! #greeting', None, 5, None, 1, 10, None, None, None)
+            row = ('post-123', 'Hello world! #greeting', None, 'agent-5', None, 'thread-1', 10, None, None, None)
             post = Post(row)
 
             print(f"Post ID: {post.id}")
@@ -48,7 +49,8 @@ class Post:
             # Enrich post with additional data from database
             # (requires database cursor)
             ydh = YDataHandler('path/to/database.db')
-            posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
+            agent_id = next(iter(ydh.agent_mapping()))
+            posts = ydh.posts_by_agent(agent_id=agent_id, enrich_dimensions=['sentiment', 'hashtags'])
 
             for post in posts.get_posts():
                 print(f"Sentiment: {post.sentiment}")
@@ -106,11 +108,13 @@ class Post:
 
             ydh = YDataHandler('path/to/database.db')
 
+            agent_id = next(iter(ydh.agent_mapping()))
+
             # Enrich with specific dimensions
-            posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
+            posts = ydh.posts_by_agent(agent_id=agent_id, enrich_dimensions=['sentiment', 'hashtags'])
 
             # Or enrich with all available data
-            all_posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['all'])
+            all_posts = ydh.posts_by_agent(agent_id=agent_id, enrich_dimensions=['all'])
 
             for post in all_posts.get_posts():
                 print(f"Sentiment: {post.sentiment}")
@@ -333,13 +337,14 @@ class Posts:
             posts = Posts()
 
             # Add posts manually
-            row = (1, 'Hello world!', None, 5, None, 1, 10, None, None, None)
+            row = ('post-1', 'Hello world!', None, 'agent-5', None, 'thread-1', 10, None, None, None)
             post = Post(row)
             posts.add_post(post)
 
             # Or retrieve posts from database
             ydh = YDataHandler('path/to/database.db')
-            agent_posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment'])
+            agent_id = next(iter(ydh.agent_mapping()))
+            agent_posts = ydh.posts_by_agent(agent_id=agent_id, enrich_dimensions=['sentiment'])
 
             # Get list of all posts
             post_list = agent_posts.get_posts()

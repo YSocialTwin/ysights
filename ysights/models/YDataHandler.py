@@ -69,7 +69,8 @@ class YDataHandler:
             print(f"Total agents: {len(agents.get_agents())}")
 
             # Get posts by specific agent with enriched data
-            agent_posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
+            agent_id = next(iter(ydh.agent_mapping()))
+            agent_posts = ydh.posts_by_agent(agent_id=agent_id, enrich_dimensions=['sentiment', 'hashtags'])
             for post in agent_posts.get_posts():
                 print(f"Post: {post.text}")
                 print(f"Sentiment: {post.sentiment}")
@@ -82,6 +83,10 @@ class YDataHandler:
         Database connections are automatically managed through the internal
         decorator ``_handle_db_connection``. Methods that query the database
         will automatically open and close connections as needed.
+
+        Entity identifiers are treated as opaque values. Depending on the
+        backing database, IDs can be integers, strings, or UUID-like tokens;
+        the API does not require numeric arithmetic on identifiers.
 
     See Also:
         :class:`ysights.models.Agents.Agents`: Container for agent collections
@@ -651,8 +656,8 @@ class YDataHandler:
         """
         Return the canonical thread identifiers available in the dataset.
 
-        :return: List of canonical thread ids
-        :rtype: list[int]
+        :return: List of canonical thread identifiers
+        :rtype: list
         """
         time_filter, time_params = self.__build_time_filter(
             from_round, to_round, "p.round"
@@ -719,8 +724,8 @@ class YDataHandler:
         """
         Return conversation metrics for all threads in the dataset.
 
-        :return: Mapping of thread id to metrics dictionary
-        :rtype: dict[int, dict]
+        :return: Mapping of thread identifier to metrics dictionary
+        :rtype: dict
         """
         time_filter, time_params = self.__build_time_filter(
             from_round, to_round, "p.round"
@@ -1486,7 +1491,8 @@ class YDataHandler:
             ydh = YDataHandler('path/to/database.db')
 
             mapping = ydh.agent_mapping()
-            print(f"Agent 5's username: {mapping[5]}")
+            agent_id = next(iter(mapping))
+            print(f"Selected agent's username: {mapping[agent_id]}")
 
             # Use mapping to display usernames in analysis
             post_counts = {}  # hypothetical post count data
@@ -1507,16 +1513,16 @@ class YDataHandler:
         Get all post IDs created by a specific agent.
 
         :param agent_id: The ID of the agent
-        :type agent_id: int
-        :return: Dictionary of post IDs (post_id -> post_id mapping)
+        :type agent_id: Any
+        :return: Dictionary of post identifiers (post_id -> post_id mapping)
         :rtype: dict
 
         Example::
 
             ydh = YDataHandler('path/to/database.db')
 
-            post_ids = ydh.agent_post_ids(agent_id=5)
-            print(f"Agent 5 created {len(post_ids)} posts")
+            post_ids = ydh.agent_post_ids(agent_id=<agent_identifier>)
+            print(f"Found {len(post_ids)} posts for the selected agent")
             print(f"Post IDs: {list(post_ids.keys())}")
 
         See Also:
@@ -1576,7 +1582,7 @@ class YDataHandler:
         complete enrichment.
 
         :param agent_id: The ID of the agent whose posts to retrieve
-        :type agent_id: int
+        :type agent_id: Any
         :param enrich_dimensions: List of dimensions to enrich. Options:
                                  'sentiment', 'hashtags', 'mentions', 'emotions',
                                  'topics', 'toxicity', 'reactions', 'all', or []
@@ -1587,9 +1593,10 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
+            agent_id = next(iter(ydh.agent_mapping()))
 
             # Get posts with full enrichment
-            posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['all'])
+            posts = ydh.posts_by_agent(agent_id=agent_id, enrich_dimensions=['all'])
             for post in posts.get_posts():
                 print(f"Post: {post.text}")
                 print(f"Sentiment: {post.sentiment}")
@@ -1597,10 +1604,10 @@ class YDataHandler:
                 print(f"Topics: {post.topics}")
 
             # Get posts with selective enrichment (faster)
-            posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=['sentiment', 'hashtags'])
+            posts = ydh.posts_by_agent(agent_id=agent_id, enrich_dimensions=['sentiment', 'hashtags'])
 
             # Get posts without enrichment
-            posts = ydh.posts_by_agent(agent_id=5, enrich_dimensions=[])
+            posts = ydh.posts_by_agent(agent_id=agent_id, enrich_dimensions=[])
 
         See Also:
             :meth:`Post.enrich_post`: Method that performs the enrichment
@@ -1623,9 +1630,9 @@ class YDataHandler:
         Get the agent ID who created a specific post.
 
         :param post_id: The ID of the post
-        :type post_id: int
-        :return: The ID of the agent who created the post
-        :rtype: int
+        :type post_id: Any
+        :return: The identifier of the agent who created the post
+        :rtype: Any
         :raises ValueError: If the post ID does not exist in the database
 
         Example::
@@ -1658,7 +1665,7 @@ class YDataHandler:
         ID and the post ID, with a count of how many times it was recommended.
 
         :param agent_id: The ID of the agent
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -1669,16 +1676,17 @@ class YDataHandler:
         Example::
 
             ydh = YDataHandler('path/to/database.db')
+            agent_id = next(iter(ydh.agent_mapping()))
 
-            # Get all recommendations for agent 5
-            recs = ydh.agent_recommendations(agent_id=5)
-            print(f"Agent 5 received {len(recs)} unique post recommendations")
+            # Get all recommendations for a selected agent
+            recs = ydh.agent_recommendations(agent_id=agent_id)
+            print(f"Received {len(recs)} unique post recommendations")
 
             for user_post, count in recs.items():
                 print(f"Post {user_post.post_id} by agent {user_post.agent_id}: {count} times")
 
             # Get recommendations in specific time range
-            recs = ydh.agent_recommendations(agent_id=5, from_round=100, to_round=200)
+            recs = ydh.agent_recommendations(agent_id=<agent_identifier>, from_round=100, to_round=200)
             print(f"Recommendations in rounds 100-200: {len(recs)}")
 
         See Also:
@@ -1696,10 +1704,6 @@ class YDataHandler:
             rw = row[0].split("|")
 
             for r in rw:
-                try:
-                    r = int(r)
-                except Exception:
-                    pass
                 aid = self.agent_id_by_post_id(r)
                 recommendations[UserPost(agent_id=aid, post_id=r)] += 1
 
@@ -1716,33 +1720,34 @@ class YDataHandler:
         This provides insight into the reach and visibility of an agent's content.
 
         :param agent_id: The ID of the agent whose posts to analyze
-        :type agent_id: int
-        :param rec_stats: Dictionary of post IDs to their recommendation counts
+        :type agent_id: Any
+        :param rec_stats: Dictionary of post identifiers to their recommendation counts
                          (typically from recommendations_per_post())
-        :type rec_stats: dict[int, int]
+        :type rec_stats: dict
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
         :type to_round: int, optional
-        :return: Dictionary mapping post IDs to recommendation counts
-        :rtype: dict[int, int]
+        :return: Dictionary mapping post identifiers to recommendation counts
+        :rtype: dict
 
         Example::
 
             ydh = YDataHandler('path/to/database.db')
+            agent_id = next(iter(ydh.agent_mapping()))
 
             # First get overall recommendation stats
             rec_stats = ydh.recommendations_per_post()
 
             # Then get visibility for specific agent
-            visibility = ydh.agent_posts_visibility(agent_id=5, rec_stats=rec_stats)
-            print(f"Agent 5's post visibility:")
+            visibility = ydh.agent_posts_visibility(agent_id=agent_id, rec_stats=rec_stats)
+            print("Selected agent's post visibility:")
             for post_id, count in visibility.items():
                 print(f"  Post {post_id} was recommended {count} times")
 
             # Get visibility in specific time range
             visibility = ydh.agent_posts_visibility(
-                agent_id=5, rec_stats=rec_stats,
+                agent_id=agent_id, rec_stats=rec_stats,
                 from_round=100, to_round=200
             )
 
@@ -1757,10 +1762,7 @@ class YDataHandler:
             query = "SELECT p.id FROM post as p WHERE p.user_id = ?"
             data = self.__execute_query(query, (agent_id,))
 
-        try:
-            posts = {int(row[0]): None for row in data}
-        except Exception:
-            posts = {row[0]: None for row in data}
+        posts = {row[0]: None for row in data}
 
         # filter rec_stats to only include posts made by the agent
         filtered_recs = {k: v for k, v in rec_stats.items() if k in posts}
@@ -1774,8 +1776,8 @@ class YDataHandler:
         Aggregates how many times each post was recommended across all agents
         and all rounds. Useful for identifying popular or viral content.
 
-        :return: Dictionary mapping post IDs to their total recommendation counts
-        :rtype: dict[int, int]
+        :return: Dictionary mapping post identifiers to their total recommendation counts
+        :rtype: dict
 
         Example::
 
@@ -1790,7 +1792,8 @@ class YDataHandler:
                 print(f"  Post {post_id}: {count} recommendations")
 
             # Use for visibility analysis
-            visibility = ydh.agent_posts_visibility(agent_id=5, rec_stats=rec_stats)
+            agent_id = next(iter(ydh.agent_mapping()))
+            visibility = ydh.agent_posts_visibility(agent_id=agent_id, rec_stats=rec_stats)
 
         See Also:
             :meth:`recommendations_per_post_per_user`: Get per-user recommendation data
@@ -1805,10 +1808,6 @@ class YDataHandler:
         for row in recs:
             rw = row[0].split("|")
             for r in rw:
-                try:
-                    r = int(r)
-                except Exception:
-                    pass
                 rec_stats[r] += 1
 
         return rec_stats
@@ -1823,9 +1822,9 @@ class YDataHandler:
         detailed insight into content distribution patterns.
 
         :return: Tuple of (post_recs, user_to_posts_read) where:
-                 - post_recs: dict mapping post_id to recommendation count
-                 - user_to_posts_read: dict mapping user_id to list of post_ids they received
-        :rtype: tuple[dict[int, int], dict[int, list[int]]]
+                 - post_recs: dict mapping post identifier to recommendation count
+                 - user_to_posts_read: dict mapping user identifier to list of post identifiers they received
+        :rtype: tuple[dict, dict]
 
         Example::
 
@@ -1839,9 +1838,9 @@ class YDataHandler:
                 print(f"  Post {post_id}: {count} recommendations")
 
             # Analyze user reading patterns
-            user_id = 5
+            user_id = <user_identifier>
             posts_seen = user_reading_history[user_id]
-            print(f"Agent {user_id} saw {len(posts_seen)} posts")
+            print(f"Selected user saw {len(posts_seen)} posts")
             print(f"Average recommendations per post: {sum(post_recs.values()) / len(post_recs):.2f}")
 
         See Also:
@@ -1858,10 +1857,6 @@ class YDataHandler:
         for uid, pts in recs:
             pt_ids = pts.split("|")
             for p in pt_ids:
-                try:
-                    p = int(p)
-                except Exception:
-                    pass
                 user_to_posts_read[uid].append(p)
                 if p not in post_recs:
                     post_recs[p] = 1
@@ -1881,25 +1876,25 @@ class YDataHandler:
         optionally filtered by time range. Results are grouped by reaction type.
 
         :param agent_id: The ID of the agent
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
         :type to_round: int, optional
-        :return: Dictionary mapping reaction types to lists of post IDs
-        :rtype: dict[str, list[int]]
+        :return: Dictionary mapping reaction types to lists of post identifiers
+        :rtype: dict[str, list]
 
         Example::
 
             ydh = YDataHandler('path/to/database.db')
 
-            reactions = ydh.agent_reactions(agent_id=5)
-            print(f"Agent 5's reactions:")
+            reactions = ydh.agent_reactions(agent_id=<agent_identifier>)
+            print("Selected agent's reactions:")
             for reaction_type, post_ids in reactions.items():
                 print(f"  {reaction_type}: {len(post_ids)} posts")
 
             # Reactions in specific time range
-            reactions = ydh.agent_reactions(agent_id=5, from_round=100, to_round=200)
+            reactions = ydh.agent_reactions(agent_id=<agent_identifier>, from_round=100, to_round=200)
             like_count = len(reactions.get('like', []))
             print(f"Likes in rounds 100-200: {like_count}")
 
@@ -1926,7 +1921,7 @@ class YDataHandler:
         of use. Optionally filter by time range.
 
         :param agent_id: The ID of the agent
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -1938,13 +1933,13 @@ class YDataHandler:
 
             ydh = YDataHandler('path/to/database.db')
 
-            hashtags = ydh.agent_hashtags(agent_id=5)
-            print("Agent 5's most used hashtags:")
+            hashtags = ydh.agent_hashtags(agent_id=<agent_identifier>)
+            print("Selected agent's most used hashtags:")
             for tag, count in sorted(hashtags.items(), key=lambda x: x[1], reverse=True)[:10]:
                 print(f"  #{tag}: {count} times")
 
             # Hashtags in specific period
-            recent_tags = ydh.agent_hashtags(agent_id=5, from_round=500, to_round=1000)
+            recent_tags = ydh.agent_hashtags(agent_id=<agent_identifier>, from_round=500, to_round=1000)
             print(f"Used {len(recent_tags)} different hashtags in rounds 500-1000")
 
         See Also:
@@ -1977,7 +1972,7 @@ class YDataHandler:
         by time range.
 
         :param agent_id: The ID of the agent
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -1989,14 +1984,14 @@ class YDataHandler:
 
             ydh = YDataHandler('path/to/database.db')
 
-            interests = ydh.agent_interests(agent_id=5)
-            print("Agent 5's interest profile:")
+            interests = ydh.agent_interests(agent_id=<agent_identifier>)
+            print("Selected agent's interest profile:")
             for interest, count in sorted(interests.items(), key=lambda x: x[1], reverse=True):
                 print(f"  {interest}: {count}")
 
             # Track interest evolution
-            early_interests = ydh.agent_interests(agent_id=5, from_round=0, to_round=500)
-            late_interests = ydh.agent_interests(agent_id=5, from_round=500, to_round=1000)
+            early_interests = ydh.agent_interests(agent_id=<agent_identifier>, from_round=0, to_round=500)
+            late_interests = ydh.agent_interests(agent_id=<agent_identifier>, from_round=500, to_round=1000)
 
             new_interests = set(late_interests.keys()) - set(early_interests.keys())
             print(f"New interests acquired: {new_interests}")
@@ -2031,7 +2026,7 @@ class YDataHandler:
         how frequently each emotion appears. Optionally filter by time range.
 
         :param agent_id: The ID of the agent
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -2043,14 +2038,14 @@ class YDataHandler:
 
             ydh = YDataHandler('path/to/database.db')
 
-            emotions = ydh.agent_emotions(agent_id=5)
-            print("Agent 5's emotional expression:")
+            emotions = ydh.agent_emotions(agent_id=<agent_identifier>)
+            print("Selected agent's emotional expression:")
             for emotion, count in sorted(emotions.items(), key=lambda x: x[1], reverse=True):
                 print(f"  {emotion}: {count} posts")
 
             # Compare emotional states over time
-            early_emotions = ydh.agent_emotions(agent_id=5, from_round=0, to_round=500)
-            late_emotions = ydh.agent_emotions(agent_id=5, from_round=500, to_round=1000)
+            early_emotions = ydh.agent_emotions(agent_id=<agent_identifier>, from_round=0, to_round=500)
+            late_emotions = ydh.agent_emotions(agent_id=<agent_identifier>, from_round=500, to_round=1000)
 
             joy_change = late_emotions.get('joy', 0) - early_emotions.get('joy', 0)
             print(f"Change in joy expression: {joy_change}")
@@ -2086,7 +2081,7 @@ class YDataHandler:
         Optionally filter by time range.
 
         :param agent_id: The ID of the agent
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -2098,8 +2093,8 @@ class YDataHandler:
 
             ydh = YDataHandler('path/to/database.db')
 
-            toxicity_data = ydh.agent_toxicity(agent_id=5)
-            print(f"Agent 5 toxicity analysis over {len(toxicity_data)} posts:")
+            toxicity_data = ydh.agent_toxicity(agent_id=<agent_identifier>)
+            print(f"Selected agent toxicity analysis over {len(toxicity_data)} posts:")
 
             # Calculate average toxicity
             if toxicity_data:
@@ -2111,8 +2106,8 @@ class YDataHandler:
                 print(f"Posts with high profanity: {len(high_profanity)}")
 
             # Compare toxicity over time periods
-            early_tox = ydh.agent_toxicity(agent_id=5, from_round=0, to_round=500)
-            late_tox = ydh.agent_toxicity(agent_id=5, from_round=500, to_round=1000)
+            early_tox = ydh.agent_toxicity(agent_id=<agent_identifier>, from_round=0, to_round=500)
+            late_tox = ydh.agent_toxicity(agent_id=<agent_identifier>, from_round=500, to_round=1000)
 
         Note:
             Toxicity scores are typically in the range [0, 1] where higher values
@@ -2379,7 +2374,7 @@ class YDataHandler:
         """
         if self.__get_schema().has_table("user_mgmt"):
             users = self.users_frame(columns=["id"])
-            user_ids = [int(user_id) for user_id in users["id"].tolist()]
+            user_ids = list(users["id"].tolist())
         else:
             user_ids = []
 
@@ -2468,7 +2463,7 @@ class YDataHandler:
             and graph.number_of_edges() > 0
         ):
             user_frame = self.users_frame(columns=["id", "leaning"])
-            leaning_by_user = {int(row[0]): row[1] for _, row in user_frame.iterrows()}
+            leaning_by_user = {row[0]: row[1] for _, row in user_frame.iterrows()}
             aligned = 0
             comparable = 0
             for source, target in graph.edges():
@@ -2794,7 +2789,7 @@ class YDataHandler:
         )
         summaries = {}
         for row in sessions:
-            session_id = int(row[0])
+            session_id = row[0]
             summaries[session_id] = self.forum_session_summary(session_id)
         return self.__analysis_cache_set(summaries, "forum_session_summaries")
 
@@ -2975,7 +2970,7 @@ class YDataHandler:
                 "SELECT DISTINCT topic_id FROM post_topics ORDER BY topic_id ASC"
             )
             if topic_rows:
-                first_topic = int(topic_rows[0][0])
+                first_topic = topic_rows[0][0]
                 targets.append(
                     (
                         f"topic_lifecycle[{first_topic}]",
@@ -3082,7 +3077,7 @@ class YDataHandler:
         connections at the end of the time period.
 
         :param agent_id: The ID of the agent (the "ego")
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -3096,14 +3091,15 @@ class YDataHandler:
             from ysights import YDataHandler
 
             ydh = YDataHandler('path/to/database.db')
+            agent_id = next(iter(ydh.agent_mapping()))
 
-            # Get follower network for agent 5
-            follower_net = ydh.ego_network_follower(agent_id=5)
-            print(f"Agent 5 has {follower_net.number_of_nodes() - 1} followers")
-            print(f"Follower IDs: {list(follower_net.successors(5))}")
+            # Get follower network for a selected agent
+            follower_net = ydh.ego_network_follower(agent_id=agent_id)
+            print(f"Selected agent has {follower_net.number_of_nodes() - 1} followers")
+            print(f"Follower IDs: {list(follower_net.successors(agent_id))}")
 
             # Get follower network in specific time period
-            recent_followers = ydh.ego_network_follower(agent_id=5, from_round=500, to_round=1000)
+            recent_followers = ydh.ego_network_follower(agent_id=agent_id, from_round=500, to_round=1000)
 
         Note:
             This method tracks follow/unfollow actions. If an edge has been
@@ -3146,7 +3142,7 @@ class YDataHandler:
         connections at the end of the time period.
 
         :param agent_id: The ID of the agent (the "ego")
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -3160,15 +3156,16 @@ class YDataHandler:
             from ysights import YDataHandler
 
             ydh = YDataHandler('path/to/database.db')
+            agent_id = next(iter(ydh.agent_mapping()))
 
-            # Get following network for agent 5
-            following_net = ydh.ego_network_following(agent_id=5)
-            print(f"Agent 5 follows {following_net.number_of_nodes() - 1} accounts")
-            print(f"Following IDs: {list(following_net.predecessors(5))}")
+            # Get following network for a selected agent
+            following_net = ydh.ego_network_following(agent_id=agent_id)
+            print(f"Selected agent follows {following_net.number_of_nodes() - 1} accounts")
+            print(f"Following IDs: {list(following_net.predecessors(agent_id))}")
 
             # Compare early vs late following behavior
-            early = ydh.ego_network_following(agent_id=5, from_round=0, to_round=500)
-            late = ydh.ego_network_following(agent_id=5, from_round=500, to_round=1000)
+            early = ydh.ego_network_following(agent_id=agent_id, from_round=0, to_round=500)
+            late = ydh.ego_network_following(agent_id=agent_id, from_round=500, to_round=1000)
             print(f"Early following count: {early.number_of_nodes() - 1}")
             print(f"Late following count: {late.number_of_nodes() - 1}")
 
@@ -3213,7 +3210,7 @@ class YDataHandler:
         view of the agent's social connections.
 
         :param agent_id: The ID of the agent (the "ego")
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -3227,19 +3224,20 @@ class YDataHandler:
             from ysights import YDataHandler
 
             ydh = YDataHandler('path/to/database.db')
+            agent_id = next(iter(ydh.agent_mapping()))
 
-            # Get complete ego network for agent 5
-            ego_net = ydh.ego_network(agent_id=5)
-            print(f"Agent 5's ego network has {ego_net.number_of_nodes()} nodes")
+            # Get complete ego network for a selected agent
+            ego_net = ydh.ego_network(agent_id=agent_id)
+            print(f"Selected agent's ego network has {ego_net.number_of_nodes()} nodes")
             print(f"Edges: {ego_net.number_of_edges()}")
 
             # Analyze network structure
-            in_degree = ego_net.in_degree(5)  # Number of followers
-            out_degree = ego_net.out_degree(5)  # Number following
+            in_degree = ego_net.in_degree(agent_id)  # Number of followers
+            out_degree = ego_net.out_degree(agent_id)  # Number following
             print(f"Followers: {in_degree}, Following: {out_degree}")
 
             # Get ego network for specific time period
-            period_net = ydh.ego_network(agent_id=5, from_round=100, to_round=500)
+            period_net = ydh.ego_network(agent_id=agent_id, from_round=100, to_round=500)
 
         See Also:
             :meth:`ego_network_follower`: Get only follower connections
@@ -3267,7 +3265,7 @@ class YDataHandler:
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
         :type to_round: int, optional
         :param agent_ids: List of agent IDs to include. If None, all agents are included
-        :type agent_ids: list[int], optional
+        :type agent_ids: list[Any], optional
         :return: Directed graph representing the complete social network
         :rtype: networkx.DiGraph
 
@@ -3310,15 +3308,10 @@ class YDataHandler:
         """
         if agent_ids is None:
             if self.__get_schema().has_table("user_mgmt"):
-                agent_ids = [
-                    int(user_id)
-                    for user_id in self.users_frame(columns=["id"])["id"].tolist()
-                ]
+                agent_ids = list(self.users_frame(columns=["id"])["id"].tolist())
             else:
-                rows = self.__execute_query(
-                    "SELECT DISTINCT user_id FROM follow ORDER BY user_id ASC"
-                )
-                agent_ids = [int(row[0]) for row in rows]
+                rows = self.__execute_query("SELECT DISTINCT user_id FROM follow ORDER BY user_id ASC")
+                agent_ids = [row[0] for row in rows]
 
         networks = {}
 
@@ -3340,7 +3333,7 @@ class YDataHandler:
         of times each agent was mentioned.
 
         :param agent_id: The ID of the agent (the "ego")
-        :type agent_id: int
+        :type agent_id: Any
         :param from_round: Starting round for filtering (inclusive), None for no lower bound
         :type from_round: int, optional
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
@@ -3354,19 +3347,20 @@ class YDataHandler:
             from ysights import YDataHandler
 
             ydh = YDataHandler('path/to/database.db')
+            agent_id = next(iter(ydh.agent_mapping()))
 
-            # Get mention network for agent 5
-            mention_net = ydh.mention_ego_network(agent_id=5)
-            print(f"Agent 5 has mentioned {mention_net.number_of_nodes() - 1} different agents")
+            # Get mention network for a selected agent
+            mention_net = ydh.mention_ego_network(agent_id=agent_id)
+            print(f"Selected agent has mentioned {mention_net.number_of_nodes() - 1} different agents")
 
             # Analyze mention patterns
-            for target in mention_net.successors(5):
-                weight = mention_net[5][target]['weight']
+            for target in mention_net.successors(agent_id):
+                weight = mention_net[agent_id][target]['weight']
                 print(f"  Mentioned agent {target}: {weight} times")
 
             # Compare mention patterns over time
-            early_mentions = ydh.mention_ego_network(agent_id=5, from_round=0, to_round=500)
-            late_mentions = ydh.mention_ego_network(agent_id=5, from_round=500, to_round=1000)
+            early_mentions = ydh.mention_ego_network(agent_id=agent_id, from_round=0, to_round=500)
+            late_mentions = ydh.mention_ego_network(agent_id=agent_id, from_round=500, to_round=1000)
 
         See Also:
             :meth:`mention_network`: Get complete mention network for all agents
@@ -3406,7 +3400,7 @@ class YDataHandler:
         :param to_round: Ending round for filtering (inclusive), None for no upper bound
         :type to_round: int, optional
         :param agent_ids: List of agent IDs to include. If None, all agents are included
-        :type agent_ids: list[int], optional
+        :type agent_ids: list[Any], optional
         :return: Directed weighted graph representing the mention network
         :rtype: networkx.DiGraph
 
@@ -3447,15 +3441,10 @@ class YDataHandler:
         """
         if agent_ids is None:
             if self.__get_schema().has_table("user_mgmt"):
-                agent_ids = [
-                    int(user_id)
-                    for user_id in self.users_frame(columns=["id"])["id"].tolist()
-                ]
+                agent_ids = list(self.users_frame(columns=["id"])["id"].tolist())
             else:
-                rows = self.__execute_query(
-                    "SELECT DISTINCT user_id FROM mentions ORDER BY user_id ASC"
-                )
-                agent_ids = [int(row[0]) for row in rows]
+                rows = self.__execute_query("SELECT DISTINCT user_id FROM mentions ORDER BY user_id ASC")
+                agent_ids = [row[0] for row in rows]
 
         networks = {}
 

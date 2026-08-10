@@ -15,7 +15,8 @@ class Agent:
                 gender, nationality, toxicity, is_page, left_on, daily_activity_level, profession]
     :type row: tuple
 
-    :ivar int id: Unique identifier for the agent
+    :ivar id: Unique identifier for the agent. May be an int or a UUID/string
+        token depending on the database schema.
     :ivar str username: The agent's username
     :ivar str role: The agent's role in the simulation
     :ivar str leaning: Political or ideological leaning of the agent
@@ -39,7 +40,7 @@ class Agent:
             from ysights.models.Agents import Agent
 
             # Example database row
-            row = (1, 'alice_smith', None, None, 'user', 'moderate', 32,
+            row = ('agent-1', 'alice_smith', None, None, 'user', 'moderate', 32,
                    0.7, 0.6, 0.8, 0.5, 0.4, 0.5, 'en', None, 'college',
                    0, 0.5, 'female', 'USA', 0.1, False, None, 3.5, 'teacher')
 
