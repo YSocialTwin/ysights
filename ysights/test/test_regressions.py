@@ -4,6 +4,8 @@ import sqlite3
 import tempfile
 import unittest
 
+import pandas as pd
+
 from ysights.algorithms.recommenders import sentiment_diffusion_metrics
 from ysights.algorithms.topics import adoption_rate, peak_engagement_time, topic_spread
 from ysights.models.Agents import Agent
@@ -30,6 +32,11 @@ def _create_fixture_db():
             news_id INTEGER,
             shared_from INTEGER,
             image_id INTEGER
+        );
+
+        CREATE TABLE user_mgmt (
+            id INTEGER PRIMARY KEY,
+            username TEXT NOT NULL
         );
 
         CREATE TABLE post_toxicity (
@@ -110,6 +117,21 @@ def _create_fixture_db():
             round INTEGER NOT NULL,
             answered INTEGER
         );
+
+        CREATE TABLE forum_chat_sessions (
+            id INTEGER PRIMARY KEY,
+            title TEXT NOT NULL,
+            created_at INTEGER
+        );
+
+        CREATE TABLE forum_chat_messages (
+            id INTEGER PRIMARY KEY,
+            session_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            message TEXT NOT NULL,
+            round INTEGER NOT NULL,
+            reply_to INTEGER
+        );
         """
     )
 
@@ -120,6 +142,10 @@ def _create_fixture_db():
             (11, "post-11", None, 1, None, 1, 5, None, None, None),
             (12, "post-12", None, 2, None, 1, 5, None, None, None),
         ],
+    )
+    cur.executemany(
+        "INSERT INTO user_mgmt VALUES (?, ?)",
+        [(1, "alice"), (2, "bob")],
     )
     cur.execute(
         "INSERT INTO post_toxicity VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -175,6 +201,17 @@ def _create_fixture_db():
         [
             (1, 20, 10, 1, 0),
             (2, 30, 11, 5, 0),
+        ],
+    )
+    cur.execute(
+        "INSERT INTO forum_chat_sessions VALUES (?, ?, ?)",
+        (1, "general", 1),
+    )
+    cur.executemany(
+        "INSERT INTO forum_chat_messages VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (1, 1, 1, "hello forum", 1, None),
+            (2, 1, 2, "reply forum", 5, 1),
         ],
     )
 
@@ -317,6 +354,37 @@ class RegressionTestCase(unittest.TestCase):
         ):
             with self.assertRaises(NotImplementedError):
                 func(None)
+
+    def test_schema_capabilities_and_frames(self):
+        schema = self.handler.schema()
+        capabilities = self.handler.capabilities()
+
+        self.assertIn("post", schema.tables)
+        self.assertIn("forum_chat_messages", schema.tables)
+        self.assertTrue(self.handler.has_table("post"))
+        self.assertTrue(self.handler.supports_feature("microblog"))
+        self.assertTrue(self.handler.supports_feature("forum"))
+        self.assertTrue(capabilities["features"]["posts"])
+        self.assertTrue(capabilities["features"]["forum_messages"])
+
+        posts_df = self.handler.posts_frame()
+        self.assertIsInstance(posts_df, pd.DataFrame)
+        self.assertEqual(len(posts_df), 3)
+        self.assertIn("tweet", posts_df.columns)
+
+        users_df = self.handler.users_frame(columns=["id", "username"])
+        self.assertIsInstance(users_df, pd.DataFrame)
+        self.assertListEqual(list(users_df.columns), ["id", "username"])
+
+        forum_messages_df = self.handler.forum_messages_frame()
+        self.assertIsInstance(forum_messages_df, pd.DataFrame)
+        self.assertEqual(len(forum_messages_df), 2)
+        self.assertIn("message", forum_messages_df.columns)
+
+        forum_sessions_df = self.handler.forum_sessions_frame()
+        self.assertIsInstance(forum_sessions_df, pd.DataFrame)
+        self.assertEqual(len(forum_sessions_df), 1)
+        self.assertIn("title", forum_sessions_df.columns)
 
 
 if __name__ == "__main__":

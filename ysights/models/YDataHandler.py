@@ -8,6 +8,7 @@ import networkx as nx
 
 from ysights.models.Agents import Agent, Agents
 from ysights.models.Posts import Post, Posts
+from ysights.models.schema import ExperimentSchema
 
 # Try to import psycopg2, but don't fail if it's not available
 try:
@@ -108,6 +109,7 @@ class YDataHandler:
         """
         self.db_path = db_path
         self.connection = None
+        self._schema_cache = None
 
         # Detect database type
         if db_path.startswith("postgresql://") or db_path.startswith("postgres://"):
@@ -239,9 +241,77 @@ class YDataHandler:
         # Convert query to database-specific format
         query, params = self.__convert_query_for_db(query, params)
 
+        rows, _ = self.__execute_query_with_columns(query, params)
+        return rows
+
+    def __execute_query_with_columns(self, query, params=None):
+        """
+        Execute an SQL query and return rows plus column names.
+
+        :param query: SQL query string to execute
+        :type query: str
+        :param params: Optional parameters for parameterized queries
+        :type params: tuple or list, optional
+        :return: Tuple of (rows, columns)
+        :rtype: tuple[list, list[str]]
+        """
+        if not self.connection:
+            raise FileNotFoundError("Database connection is not established.")
+
+        query, params = self.__convert_query_for_db(query, params)
         cursor = self.connection.cursor()
         cursor.execute(query, params or [])
-        return cursor.fetchall()
+        rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description] if cursor.description else []
+        return rows, columns
+
+    def __introspect_schema(self):
+        """
+        Introspect the current database connection and cache table metadata.
+
+        :return: Introspected experiment schema
+        :rtype: ExperimentSchema
+        """
+        if self.db_type == "sqlite":
+            rows = self.__execute_query(
+                "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
+            )
+            tables = [row[0] for row in rows]
+            columns = {}
+            cursor = self.connection.cursor()
+            for table_name in tables:
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                columns[table_name] = frozenset(row[1] for row in cursor.fetchall())
+        else:
+            rows = self.__execute_query(
+                """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
+                ORDER BY table_name
+                """
+            )
+            tables = [row[0] for row in rows]
+            columns = {}
+            for table_name in tables:
+                cursor = self.connection.cursor()
+                cursor.execute(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = %s
+                    ORDER BY ordinal_position
+                    """,
+                    (table_name,),
+                )
+                columns[table_name] = frozenset(row[0] for row in cursor.fetchall())
+
+        return ExperimentSchema(frozenset(tables), columns)
+
+    def __get_schema(self):
+        if self._schema_cache is None:
+            self._schema_cache = self.__introspect_schema()
+        return self._schema_cache
 
     def __build_time_filter(self, from_round=None, to_round=None, field_name="round"):
         """
@@ -307,6 +377,83 @@ class YDataHandler:
             Consider using parameterized queries when possible.
         """
         return self.__execute_query(query)
+
+    @_handle_db_connection
+    def schema(self):
+        """
+        Introspect the active dataset schema.
+
+        :return: Cached schema adapter for the connected dataset
+        :rtype: ExperimentSchema
+        """
+        return self.__get_schema()
+
+    @_handle_db_connection
+    def capabilities(self):
+        """
+        Return detected dataset capabilities.
+
+        :return: Dictionary describing available tables, columns, and features
+        :rtype: dict
+        """
+        return self.__get_schema().describe()
+
+    @_handle_db_connection
+    def has_table(self, *table_names):
+        """
+        Check whether any of the named tables is present.
+
+        :param table_names: One or more table names or aliases
+        :return: True when one of the tables exists
+        :rtype: bool
+        """
+        return self.__get_schema().has_table(*table_names)
+
+    @_handle_db_connection
+    def supports_feature(self, feature_name):
+        """
+        Check whether a logical experiment feature is supported.
+
+        :param feature_name: Canonical feature name
+        :return: True when the feature is available
+        :rtype: bool
+        """
+        return self.__get_schema().supports_feature(feature_name)
+
+    @_handle_db_connection
+    def table_frame(self, table_name, columns=None):
+        """
+        Extract a table as a pandas DataFrame.
+
+        :param table_name: Table name or alias
+        :param columns: Optional iterable of column names to project
+        :return: DataFrame containing the table rows
+        :rtype: pandas.DataFrame
+        """
+        import pandas as pd
+
+        schema = self.__get_schema()
+        resolved_table = schema.resolve_table(table_name)
+        select_clause = "*" if columns is None else ", ".join(columns)
+        rows, row_columns = self.__execute_query_with_columns(
+            f"SELECT {select_clause} FROM {resolved_table}"
+        )
+        return pd.DataFrame(rows, columns=row_columns if columns is None else list(columns))
+
+    def users_frame(self, columns=None):
+        return self.table_frame("user_mgmt", columns=columns)
+
+    def posts_frame(self, columns=None):
+        return self.table_frame("post", columns=columns)
+
+    def interactions_frame(self, table_name="follow", columns=None):
+        return self.table_frame(table_name, columns=columns)
+
+    def forum_messages_frame(self, columns=None):
+        return self.table_frame("forum_messages", columns=columns)
+
+    def forum_sessions_frame(self, columns=None):
+        return self.table_frame("forum_sessions", columns=columns)
 
     # Time
     @_handle_db_connection
