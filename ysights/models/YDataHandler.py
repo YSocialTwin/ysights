@@ -323,14 +323,12 @@ class YDataHandler:
                 cursor.execute(f"PRAGMA table_info({table_name})")
                 columns[table_name] = frozenset(row[1] for row in cursor.fetchall())
         else:
-            rows = self.__execute_query(
-                """
+            rows = self.__execute_query("""
                 SELECT table_name
                 FROM information_schema.tables
                 WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
                 ORDER BY table_name
-                """
-            )
+                """)
             tables = [row[0] for row in rows]
             columns = {}
             for table_name in tables:
@@ -478,7 +476,9 @@ class YDataHandler:
         rows, row_columns = self.__execute_query_with_columns(
             f"SELECT {select_clause} FROM {resolved_table}"
         )
-        return pd.DataFrame(rows, columns=row_columns if columns is None else list(columns))
+        return pd.DataFrame(
+            rows, columns=row_columns if columns is None else list(columns)
+        )
 
     def users_frame(self, columns=None):
         return self.table_frame("user_mgmt", columns=columns)
@@ -501,7 +501,9 @@ class YDataHandler:
 
         The reference can be either a root post id or an existing thread_id value.
         """
-        rows = self.__execute_query("SELECT id, thread_id FROM post WHERE id = ?", (thread_ref,))
+        rows = self.__execute_query(
+            "SELECT id, thread_id FROM post WHERE id = ?", (thread_ref,)
+        )
         if rows:
             post_id, thread_id = rows[0]
             if thread_id not in (None, -1):
@@ -514,18 +516,24 @@ class YDataHandler:
         if rows:
             return thread_ref
 
-        raise ValueError(f"Thread reference {thread_ref} does not exist in the database.")
+        raise ValueError(
+            f"Thread reference {thread_ref} does not exist in the database."
+        )
 
     def __thread_rows(self, thread_ref, from_round=None, to_round=None):
         canonical_thread_id = self.__resolve_thread_reference(thread_ref)
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         query = (
             "SELECT * FROM post "
             "WHERE (thread_id = ? OR id = ?)"
             f"{time_filter} "
             "ORDER BY round ASC, id ASC"
         )
-        rows = self.__execute_query(query, (canonical_thread_id, canonical_thread_id, *time_params))
+        rows = self.__execute_query(
+            query, (canonical_thread_id, canonical_thread_id, *time_params)
+        )
         return canonical_thread_id, rows
 
     def __posts_from_rows(self, rows):
@@ -598,7 +606,9 @@ class YDataHandler:
         depths = {}
         for node in graph.nodes():
             try:
-                depths[node] = nx.shortest_path_length(graph, source=root_post_id, target=node)
+                depths[node] = nx.shortest_path_length(
+                    graph, source=root_post_id, target=node
+                )
             except nx.NetworkXNoPath:
                 depths[node] = 0
 
@@ -622,8 +632,12 @@ class YDataHandler:
             "max_depth": max(depths.values()) if depths else 0,
             "average_depth": sum(depths.values()) / len(depths) if depths else 0.0,
             "branching_factor": branching_factor,
-            "average_reply_latency": sum(reply_latencies) / len(reply_latencies) if reply_latencies else 0.0,
-            "median_reply_latency": float(median(reply_latencies)) if reply_latencies else 0.0,
+            "average_reply_latency": (
+                sum(reply_latencies) / len(reply_latencies) if reply_latencies else 0.0
+            ),
+            "median_reply_latency": (
+                float(median(reply_latencies)) if reply_latencies else 0.0
+            ),
             "thread_span_rounds": max(rounds) - min(rounds),
             "root_reply_count": root_reply_count,
             "root_reply_share": root_reply_count / reply_count if reply_count else 0.0,
@@ -640,7 +654,9 @@ class YDataHandler:
         :return: List of canonical thread ids
         :rtype: list[int]
         """
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         query = (
             "SELECT DISTINCT CASE WHEN p.thread_id IS NULL OR p.thread_id = -1 THEN p.id ELSE p.thread_id END AS thread_ref "
             "FROM post AS p"
@@ -706,7 +722,9 @@ class YDataHandler:
         :return: Mapping of thread id to metrics dictionary
         :rtype: dict[int, dict]
         """
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         query = (
             "SELECT DISTINCT CASE WHEN p.thread_id IS NULL OR p.thread_id = -1 THEN p.id ELSE p.thread_id END AS thread_ref "
             "FROM post AS p"
@@ -752,7 +770,9 @@ class YDataHandler:
         """
         Build a simple timeline with one metric per period.
         """
-        period_expr, period_join = self.__period_clause(alias, round_column, granularity)
+        period_expr, period_join = self.__period_clause(
+            alias, round_column, granularity
+        )
         time_filter, time_params = self.__build_time_filter(
             from_round, to_round, f"{alias}.{round_column}"
         )
@@ -769,7 +789,9 @@ class YDataHandler:
 
         return pd.DataFrame(rows, columns=["period", metric_name])
 
-    def __activity_timeline_frame(self, granularity="round", from_round=None, to_round=None):
+    def __activity_timeline_frame(
+        self, granularity="round", from_round=None, to_round=None
+    ):
         """
         Build a multi-metric activity timeline for posts and interactions.
 
@@ -779,7 +801,9 @@ class YDataHandler:
         import pandas as pd
 
         period_expr, period_join = self.__period_clause("p", "round", granularity)
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         post_query = (
             f"SELECT {period_expr} AS period, "
             "COUNT(*) AS posts, "
@@ -846,7 +870,9 @@ class YDataHandler:
 
     @_handle_db_connection
     def activity_timeline(self, granularity="round", from_round=None, to_round=None):
-        return self.__activity_timeline_frame(granularity=granularity, from_round=from_round, to_round=to_round)
+        return self.__activity_timeline_frame(
+            granularity=granularity, from_round=from_round, to_round=to_round
+        )
 
     @_handle_db_connection
     def burst_windows(
@@ -918,14 +944,24 @@ class YDataHandler:
         return {
             "metric": metric,
             "granularity": granularity,
-            "window_a": {"from_round": window_a[0], "to_round": window_a[1], "value": value_a},
-            "window_b": {"from_round": window_b[0], "to_round": window_b[1], "value": value_b},
+            "window_a": {
+                "from_round": window_a[0],
+                "to_round": window_a[1],
+                "value": value_a,
+            },
+            "window_b": {
+                "from_round": window_b[0],
+                "to_round": window_b[1],
+                "value": value_b,
+            },
             "delta": delta,
             "relative_change": relative_change,
         }
 
     @_handle_db_connection
-    def topic_timeline(self, topic_id, granularity="round", from_round=None, to_round=None):
+    def topic_timeline(
+        self, topic_id, granularity="round", from_round=None, to_round=None
+    ):
         """
         Track the growth of a topic over time.
         """
@@ -939,7 +975,9 @@ class YDataHandler:
             return timeline
         return timeline[["period", "posts"]]
 
-    def __topic_activity_frame(self, topic_id, granularity="round", from_round=None, to_round=None):
+    def __topic_activity_frame(
+        self, topic_id, granularity="round", from_round=None, to_round=None
+    ):
         """
         Build a topic timeline enriched with author counts.
         """
@@ -949,7 +987,9 @@ class YDataHandler:
         import pandas as pd
 
         period_expr, period_join = self.__period_clause("p", "round", granularity)
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         query = (
             f"SELECT {period_expr} AS period, "
             "COUNT(DISTINCT p.id) AS posts, "
@@ -964,7 +1004,9 @@ class YDataHandler:
         return pd.DataFrame(rows, columns=["period", "posts", "authors"])
 
     @_handle_db_connection
-    def topic_lifecycle(self, topic_id, granularity="round", from_round=None, to_round=None):
+    def topic_lifecycle(
+        self, topic_id, granularity="round", from_round=None, to_round=None
+    ):
         """
         Summarize the lifecycle of a topic.
         """
@@ -1072,7 +1114,11 @@ class YDataHandler:
 
         text = text or ""
         tokens = re.findall(r"[#@]?\w+(?:'\w+)?", text)
-        words = [token for token in tokens if not token.startswith("#") and not token.startswith("@")]
+        words = [
+            token
+            for token in tokens
+            if not token.startswith("#") and not token.startswith("@")
+        ]
         lower_word_counts = Counter(word.lower() for word in words)
         alpha_chars = [ch for ch in text if ch.isalpha()]
         upper_chars = [ch for ch in alpha_chars if ch.isupper()]
@@ -1080,7 +1126,9 @@ class YDataHandler:
         urls = re.findall(r"https?://\S+|www\.\S+", text)
 
         word_lengths = [len(word) for word in words]
-        avg_word_length = (sum(word_lengths) / len(word_lengths)) if word_lengths else 0.0
+        avg_word_length = (
+            (sum(word_lengths) / len(word_lengths)) if word_lengths else 0.0
+        )
         unique_words = {word.lower() for word in words}
 
         return {
@@ -1095,14 +1143,18 @@ class YDataHandler:
             "mention_count": sum(1 for token in tokens if token.startswith("@")),
             "punctuation_count": len(punctuation_chars),
             "punctuation_ratio": (len(punctuation_chars) / len(text)) if text else 0.0,
-            "uppercase_ratio": (len(upper_chars) / len(alpha_chars)) if alpha_chars else 0.0,
+            "uppercase_ratio": (
+                (len(upper_chars) / len(alpha_chars)) if alpha_chars else 0.0
+            ),
             "digit_count": sum(ch.isdigit() for ch in text),
-            "entropy_proxy": -sum(
-                (count / len(words)) * math.log(count / len(words), 2)
-                for count in lower_word_counts.values()
-            )
-            if words
-            else 0.0,
+            "entropy_proxy": (
+                -sum(
+                    (count / len(words)) * math.log(count / len(words), 2)
+                    for count in lower_word_counts.values()
+                )
+                if words
+                else 0.0
+            ),
         }
 
     @_handle_db_connection
@@ -1118,7 +1170,9 @@ class YDataHandler:
         data = self.__execute_query(query, (post_id,))
         if not data:
             raise ValueError(f"Post ID {post_id} does not exist in the database.")
-        return self.__analysis_cache_set(self.__text_profile(data[0][0]), "post_semantic_profile", post_id)
+        return self.__analysis_cache_set(
+            self.__text_profile(data[0][0]), "post_semantic_profile", post_id
+        )
 
     @_handle_db_connection
     def forum_message_semantic_profile(self, message_id):
@@ -1141,7 +1195,9 @@ class YDataHandler:
         query = f"SELECT {column_name} FROM {table_name} WHERE id = ?"
         data = self.__execute_query(query, (message_id,))
         if not data:
-            raise ValueError(f"Forum message ID {message_id} does not exist in the database.")
+            raise ValueError(
+                f"Forum message ID {message_id} does not exist in the database."
+            )
         return self.__analysis_cache_set(
             self.__text_profile(data[0][0]),
             "forum_message_semantic_profile",
@@ -1629,7 +1685,9 @@ class YDataHandler:
             :meth:`recommendations_per_post`: Get recommendation counts per post
             :meth:`agent_posts_visibility`: Get visibility of agent's own posts
         """
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "r.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "r.round"
+        )
         query = f"SELECT r.post_ids FROM recommendations as r WHERE user_id = ?{time_filter}"
         data = self.__execute_query(query, (agent_id, *time_params))
 
@@ -1893,7 +1951,9 @@ class YDataHandler:
             :meth:`agent_interests`: Get interests of agent
             :meth:`agent_topics`: Get topics agent engages with
         """
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         query = (
             "SELECT h.hashtag FROM post_hashtags as ph, post as p, hashtags as h "
             "WHERE p.user_id = ? AND p.id = ph.post_id AND ph.hashtag_id = h.id"
@@ -1946,7 +2006,9 @@ class YDataHandler:
             :meth:`agent_emotions`: Get emotional profile of agent
         """
 
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "ui.round_id")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "ui.round_id"
+        )
         query = (
             "SELECT i.interest FROM user_interest as ui, interests as i "
             "WHERE user_id = ? AND i.iid = ui.interest_id"
@@ -1997,7 +2059,9 @@ class YDataHandler:
             :meth:`agent_toxicity`: Get toxicity profile
             :meth:`agent_interests`: Get interest profile
         """
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         query = (
             "SELECT e.emotion FROM post as p, post_emotions as pe, emotions as e "
             "WHERE p.user_id = ? AND p.id = pe.post_id AND e.id = pe.emotion_id"
@@ -2058,7 +2122,9 @@ class YDataHandler:
             :meth:`agent_emotions`: Get emotional profile
             :meth:`posts_by_agent`: Get full post objects with toxicity data
         """
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         query = (
             "SELECT "
             "pt.toxicity, "
@@ -2097,7 +2163,9 @@ class YDataHandler:
         """
         Load raw post rows for an agent, optionally filtered by round.
         """
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "round"
+        )
         query = f"SELECT * FROM post WHERE user_id = ?{time_filter} ORDER BY round ASC, id ASC"
         return self.__execute_query(query, (agent_id, *time_params))
 
@@ -2116,7 +2184,9 @@ class YDataHandler:
             return cached
 
         schema = self.__get_schema()
-        post_rows = self.__agent_posts_rows(agent_id, from_round=from_round, to_round=to_round)
+        post_rows = self.__agent_posts_rows(
+            agent_id, from_round=from_round, to_round=to_round
+        )
 
         dimensions = []
         for feature_name, dimension in (
@@ -2166,14 +2236,16 @@ class YDataHandler:
             if toxicity_scores["toxicity"]
             else 0.0
         )
-        toxicity_max = max(toxicity_scores["toxicity"]) if toxicity_scores["toxicity"] else 0.0
+        toxicity_max = (
+            max(toxicity_scores["toxicity"]) if toxicity_scores["toxicity"] else 0.0
+        )
 
         if semantic_profiles:
             semantic_profile = {}
             for key in semantic_profiles[0].keys():
-                semantic_profile[key] = sum(profile[key] for profile in semantic_profiles) / len(
-                    semantic_profiles
-                )
+                semantic_profile[key] = sum(
+                    profile[key] for profile in semantic_profiles
+                ) / len(semantic_profiles)
         else:
             semantic_profile = {
                 "character_count": 0.0,
@@ -2234,7 +2306,9 @@ class YDataHandler:
         """
         Compare a user's early and late profiles across a round boundary.
         """
-        cached = self.__analysis_cache_get("profile_drift", agent_id, split_round=split_round)
+        cached = self.__analysis_cache_get(
+            "profile_drift", agent_id, split_round=split_round
+        )
         if cached is not None:
             return cached
 
@@ -2264,7 +2338,9 @@ class YDataHandler:
             split_round = rows[midpoint][6]
 
         early = self.user_profile_summary(agent_id, to_round=split_round)
-        late_from_round = split_round + 1 if isinstance(split_round, int) else split_round
+        late_from_round = (
+            split_round + 1 if isinstance(split_round, int) else split_round
+        )
         late = self.user_profile_summary(agent_id, from_round=late_from_round)
 
         def _jaccard(left, right):
@@ -2281,7 +2357,9 @@ class YDataHandler:
             "early": early,
             "late": late,
             "topic_jaccard": _jaccard(early["topic_counts"], late["topic_counts"]),
-            "emotion_jaccard": _jaccard(early["emotion_counts"], late["emotion_counts"]),
+            "emotion_jaccard": _jaccard(
+                early["emotion_counts"], late["emotion_counts"]
+            ),
             "toxicity_delta": late["avg_toxicity"] - early["avg_toxicity"],
             "reply_ratio_delta": late["reply_ratio"] - early["reply_ratio"],
             "post_count_delta": late["post_count"] - early["post_count"],
@@ -2307,7 +2385,9 @@ class YDataHandler:
 
         rows = []
         for user_id in user_ids:
-            summary = self.user_profile_summary(user_id, from_round=from_round, to_round=to_round)
+            summary = self.user_profile_summary(
+                user_id, from_round=from_round, to_round=to_round
+            )
             rows.append(
                 {
                     "agent_id": user_id,
@@ -2325,7 +2405,9 @@ class YDataHandler:
         return pd.DataFrame(rows)
 
     @_handle_db_connection
-    def community_metrics(self, graph=None, graph_type="social", from_round=None, to_round=None):
+    def community_metrics(
+        self, graph=None, graph_type="social", from_round=None, to_round=None
+    ):
         """
         Measure community structure and polarization in an interaction graph.
         """
@@ -2335,7 +2417,9 @@ class YDataHandler:
             elif graph_type == "social":
                 graph = self.social_network(from_round=from_round, to_round=to_round)
             else:
-                raise ValueError("graph_type must be 'social' or 'mention' when graph is not provided.")
+                raise ValueError(
+                    "graph_type must be 'social' or 'mention' when graph is not provided."
+                )
 
         if graph.number_of_nodes() == 0:
             return {
@@ -2354,8 +2438,14 @@ class YDataHandler:
 
         undirected = graph.to_undirected()
         if undirected.number_of_edges() > 0 and undirected.number_of_nodes() > 1:
-            communities = list(nx.algorithms.community.greedy_modularity_communities(undirected))
-            modularity = nx.algorithms.community.modularity(undirected, communities) if len(communities) > 1 else 0.0
+            communities = list(
+                nx.algorithms.community.greedy_modularity_communities(undirected)
+            )
+            modularity = (
+                nx.algorithms.community.modularity(undirected, communities)
+                if len(communities) > 1
+                else 0.0
+            )
         else:
             communities = [set(undirected.nodes())]
             modularity = 0.0
@@ -2373,7 +2463,10 @@ class YDataHandler:
         cross_ratio = (cross_edges / total_edges) if total_edges else 0.0
 
         leaning_alignment_ratio = None
-        if self.__get_schema().has_column("user_mgmt", "leaning") and graph.number_of_edges() > 0:
+        if (
+            self.__get_schema().has_column("user_mgmt", "leaning")
+            and graph.number_of_edges() > 0
+        ):
             user_frame = self.users_frame(columns=["id", "leaning"])
             leaning_by_user = {int(row[0]): row[1] for _, row in user_frame.iterrows()}
             aligned = 0
@@ -2398,10 +2491,14 @@ class YDataHandler:
             "community_count": len(communities),
             "communities": [sorted(list(community)) for community in communities],
             "community_sizes": [len(community) for community in communities],
-            "largest_community_size": max((len(community) for community in communities), default=0),
+            "largest_community_size": max(
+                (len(community) for community in communities), default=0
+            ),
             "modularity": modularity,
             "cross_community_edge_ratio": cross_ratio,
-            "density": nx.density(undirected) if undirected.number_of_nodes() > 1 else 0.0,
+            "density": (
+                nx.density(undirected) if undirected.number_of_nodes() > 1 else 0.0
+            ),
             "reciprocity": reciprocity if reciprocity is not None else 0.0,
             "leaning_alignment_ratio": leaning_alignment_ratio,
         }
@@ -2437,7 +2534,9 @@ class YDataHandler:
         time_filter = ""
         params = []
         if schema.has_table("post"):
-            time_filter, params = self.__build_time_filter(from_round, to_round, "p.round")
+            time_filter, params = self.__build_time_filter(
+                from_round, to_round, "p.round"
+            )
 
         query = (
             "SELECT r.id AS report_id, r.type AS report_type, r.to_uid AS reported_user_id, "
@@ -2485,7 +2584,9 @@ class YDataHandler:
         moderated_posts = 0
         moderated_comments = 0
         if schema.has_table("post") and schema.has_column("post", "moderated"):
-            time_filter, params = self.__build_time_filter(from_round, to_round, "p.round")
+            time_filter, params = self.__build_time_filter(
+                from_round, to_round, "p.round"
+            )
             query = (
                 "SELECT "
                 "COUNT(*) AS moderated_posts, "
@@ -2500,9 +2601,15 @@ class YDataHandler:
 
         summary = {
             "report_count": int(len(reports)),
-            "unique_reported_posts": int(reports["reported_post_id"].nunique()) if not reports.empty else 0,
-            "unique_reported_users": int(reports["reported_user_id"].nunique()) if not reports.empty else 0,
-            "unique_reporters": int(reports["reporter_user_id"].nunique()) if not reports.empty else 0,
+            "unique_reported_posts": (
+                int(reports["reported_post_id"].nunique()) if not reports.empty else 0
+            ),
+            "unique_reported_users": (
+                int(reports["reported_user_id"].nunique()) if not reports.empty else 0
+            ),
+            "unique_reporters": (
+                int(reports["reporter_user_id"].nunique()) if not reports.empty else 0
+            ),
             "report_types": report_types,
             "moderated_posts": moderated_posts,
             "moderation_comments": moderated_comments,
@@ -2546,7 +2653,9 @@ class YDataHandler:
         user_counts.insert(0, "entity_type", "user")
 
         combined = pd.concat([post_counts, user_counts], ignore_index=True)
-        combined = combined.sort_values(["report_count", "entity_type", "entity_id"], ascending=[False, True, True])
+        combined = combined.sort_values(
+            ["report_count", "entity_type", "entity_id"], ascending=[False, True, True]
+        )
         return combined.head(top_n).reset_index(drop=True)
 
     def __forum_session_message_frame(self, session_id):
@@ -2560,12 +2669,21 @@ class YDataHandler:
         schema = self.__get_schema()
         columns = ["id", "session_id", text_column]
         optional_columns = []
-        for column_name in ("role", "meta_json", "created_at", "round", "user_id", "reply_to"):
+        for column_name in (
+            "role",
+            "meta_json",
+            "created_at",
+            "round",
+            "user_id",
+            "reply_to",
+        ):
             if schema.has_column(table_name, column_name):
                 optional_columns.append(column_name)
         query = f"SELECT {', '.join(columns + optional_columns)} FROM {table_name} WHERE session_id = ? ORDER BY id ASC"
         rows = self.__execute_query(query, (session_id,))
-        return pd.DataFrame(rows, columns=["id", "session_id", text_column, *optional_columns])
+        return pd.DataFrame(
+            rows, columns=["id", "session_id", text_column, *optional_columns]
+        )
 
     @_handle_db_connection
     def forum_session_summary(self, session_id):
@@ -2581,7 +2699,9 @@ class YDataHandler:
             f"SELECT * FROM {sessions_table} WHERE id = ?", (session_id,)
         )
         if not session_rows:
-            raise ValueError(f"Forum session ID {session_id} does not exist in the database.")
+            raise ValueError(
+                f"Forum session ID {session_id} does not exist in the database."
+            )
 
         session_row = dict(zip(session_columns, session_rows[0]))
         messages = self.__forum_session_message_frame(session_id)
@@ -2609,7 +2729,9 @@ class YDataHandler:
             participant_count = int(messages["user_id"].nunique())
         elif "role" in messages.columns:
             participant_count = int(messages["role"].nunique())
-        elif schema.has_column(sessions_table, "owner_user_id") and schema.has_column(sessions_table, "target_user_id"):
+        elif schema.has_column(sessions_table, "owner_user_id") and schema.has_column(
+            sessions_table, "target_user_id"
+        ):
             participant_count = len(
                 {
                     session_row.get("owner_user_id"),
@@ -2627,7 +2749,9 @@ class YDataHandler:
         if "round" in messages.columns and not messages["round"].isna().all():
             session_span = int(messages["round"].max() - messages["round"].min())
         elif "created_at" in messages.columns:
-            session_span = f"{messages['created_at'].min()}..{messages['created_at'].max()}"
+            session_span = (
+                f"{messages['created_at'].min()}..{messages['created_at'].max()}"
+            )
         else:
             session_span = None
 
@@ -2665,7 +2789,9 @@ class YDataHandler:
             return cached
 
         sessions_table = self.__get_schema().resolve_table("forum_sessions")
-        sessions = self.__execute_query(f"SELECT id FROM {sessions_table} ORDER BY id ASC")
+        sessions = self.__execute_query(
+            f"SELECT id FROM {sessions_table} ORDER BY id ASC"
+        )
         summaries = {}
         for row in sessions:
             session_id = int(row[0])
@@ -2691,13 +2817,19 @@ class YDataHandler:
 
         if schema.has_table("user_mgmt"):
             users_table = schema.resolve_table("users")
-            report["user_count"] = int(self.__execute_query(f"SELECT COUNT(*) FROM {users_table}")[0][0])
+            report["user_count"] = int(
+                self.__execute_query(f"SELECT COUNT(*) FROM {users_table}")[0][0]
+            )
         else:
             report["user_count"] = 0
 
         if schema.has_table("post"):
-            post_rows, post_columns = self.__execute_query_with_columns("SELECT * FROM post")
-            post_index = {column_name: idx for idx, column_name in enumerate(post_columns)}
+            post_rows, post_columns = self.__execute_query_with_columns(
+                "SELECT * FROM post"
+            )
+            post_index = {
+                column_name: idx for idx, column_name in enumerate(post_columns)
+            }
             report["post_count"] = len(post_rows)
             if "comment_to" in post_index:
                 report["reply_count"] = int(
@@ -2719,21 +2851,29 @@ class YDataHandler:
             report["thread_count"] = 0
 
         if schema.supports_feature("topics"):
-            topic_rows = self.__execute_query("SELECT COUNT(DISTINCT topic_id) FROM post_topics")
+            topic_rows = self.__execute_query(
+                "SELECT COUNT(DISTINCT topic_id) FROM post_topics"
+            )
             report["topic_count"] = int(topic_rows[0][0]) if topic_rows else 0
         else:
             report["topic_count"] = 0
 
-        report["report_count"] = len(self.__reported_posts_frame()) if schema.has_table("reported") else 0
+        report["report_count"] = (
+            len(self.__reported_posts_frame()) if schema.has_table("reported") else 0
+        )
         try:
             sessions_table = schema.resolve_table("forum_sessions")
-            report["forum_session_count"] = int(self.__execute_query(f"SELECT COUNT(*) FROM {sessions_table}")[0][0])
+            report["forum_session_count"] = int(
+                self.__execute_query(f"SELECT COUNT(*) FROM {sessions_table}")[0][0]
+            )
         except KeyError:
             report["forum_session_count"] = 0
 
         try:
             messages_table = schema.resolve_table("forum_messages")
-            report["forum_message_count"] = int(self.__execute_query(f"SELECT COUNT(*) FROM {messages_table}")[0][0])
+            report["forum_message_count"] = int(
+                self.__execute_query(f"SELECT COUNT(*) FROM {messages_table}")[0][0]
+            )
         except KeyError:
             report["forum_message_count"] = 0
         report["social_edge_count"] = (
@@ -2831,10 +2971,17 @@ class YDataHandler:
             targets.append(("forum_session_summaries", self.forum_session_summaries))
 
         if self.__get_schema().supports_feature("topics"):
-            topic_rows = self.__execute_query("SELECT DISTINCT topic_id FROM post_topics ORDER BY topic_id ASC")
+            topic_rows = self.__execute_query(
+                "SELECT DISTINCT topic_id FROM post_topics ORDER BY topic_id ASC"
+            )
             if topic_rows:
                 first_topic = int(topic_rows[0][0])
-                targets.append((f"topic_lifecycle[{first_topic}]", lambda: self.topic_lifecycle(first_topic)))
+                targets.append(
+                    (
+                        f"topic_lifecycle[{first_topic}]",
+                        lambda: self.topic_lifecycle(first_topic),
+                    )
+                )
 
         if self.__get_schema().has_table("user_mgmt"):
             targets.append(("user_segments", self.user_segments))
@@ -2877,7 +3024,9 @@ class YDataHandler:
         import json
 
         with open(path, "w", encoding="utf-8") as handle:
-            json.dump(self.summary_report(), handle, indent=2, sort_keys=True, default=str)
+            json.dump(
+                self.summary_report(), handle, indent=2, sort_keys=True, default=str
+            )
         return path
 
     @_handle_db_connection
@@ -2899,7 +3048,9 @@ class YDataHandler:
         for metric in metrics:
             left_value = left.get(metric)
             right_value = right.get(metric)
-            if isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
+            if isinstance(left_value, (int, float)) and isinstance(
+                right_value, (int, float)
+            ):
                 delta = right_value - left_value
                 comparison[metric] = {
                     "left": left_value,
@@ -3159,9 +3310,14 @@ class YDataHandler:
         """
         if agent_ids is None:
             if self.__get_schema().has_table("user_mgmt"):
-                agent_ids = [int(user_id) for user_id in self.users_frame(columns=["id"])["id"].tolist()]
+                agent_ids = [
+                    int(user_id)
+                    for user_id in self.users_frame(columns=["id"])["id"].tolist()
+                ]
             else:
-                rows = self.__execute_query("SELECT DISTINCT user_id FROM follow ORDER BY user_id ASC")
+                rows = self.__execute_query(
+                    "SELECT DISTINCT user_id FROM follow ORDER BY user_id ASC"
+                )
                 agent_ids = [int(row[0]) for row in rows]
 
         networks = {}
@@ -3216,7 +3372,9 @@ class YDataHandler:
             :meth:`mention_network`: Get complete mention network for all agents
             :meth:`ego_network`: Get follower/following network
         """
-        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
         query = (
             "SELECT m.user_id FROM post as p, mentions as m "
             "WHERE p.user_id = ? AND p.id = m.post_id"
@@ -3289,9 +3447,14 @@ class YDataHandler:
         """
         if agent_ids is None:
             if self.__get_schema().has_table("user_mgmt"):
-                agent_ids = [int(user_id) for user_id in self.users_frame(columns=["id"])["id"].tolist()]
+                agent_ids = [
+                    int(user_id)
+                    for user_id in self.users_frame(columns=["id"])["id"].tolist()
+                ]
             else:
-                rows = self.__execute_query("SELECT DISTINCT user_id FROM mentions ORDER BY user_id ASC")
+                rows = self.__execute_query(
+                    "SELECT DISTINCT user_id FROM mentions ORDER BY user_id ASC"
+                )
                 agent_ids = [int(row[0]) for row in rows]
 
         networks = {}

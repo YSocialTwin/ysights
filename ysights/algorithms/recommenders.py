@@ -291,6 +291,4 @@ def sentiment_diffusion_metrics(YDH: YDataHandler):
         :func:`engagement_momentum`: Calculate post engagement momentum
         :func:`personalization_balance_score`: Measure content personalization
     """
-    raise NotImplementedError(
-        "sentiment_diffusion_metrics is not implemented yet."
-    )
+    raise NotImplementedError("sentiment_diffusion_metrics is not implemented yet.")

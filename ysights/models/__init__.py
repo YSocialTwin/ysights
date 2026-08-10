@@ -38,5 +38,5 @@ See Also:
 
 from .Agents import Agent, Agents
 from .Posts import Post, Posts
-from .YDataHandler import YDataHandler
 from .schema import ExperimentSchema
+from .YDataHandler import YDataHandler

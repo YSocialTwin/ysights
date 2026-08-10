@@ -35,7 +35,9 @@ def _topic_ids(YDH: YDataHandler):
         raise ValueError("A YDataHandler instance is required.")
     if not YDH.supports_feature("topics"):
         raise ValueError("Topic analysis is not available in this dataset.")
-    rows = YDH.custom_query("SELECT DISTINCT topic_id FROM post_topics ORDER BY topic_id")
+    rows = YDH.custom_query(
+        "SELECT DISTINCT topic_id FROM post_topics ORDER BY topic_id"
+    )
     return [row[0] for row in rows]
 
 
@@ -104,7 +106,10 @@ def adoption_rate(YDH: YDataHandler):
         :func:`peak_engagement_time`: Find peak engagement times
     """
     topic_ids = _topic_ids(YDH)
-    return {topic_id: YDH.topic_lifecycle(topic_id)["adoption_rate"] for topic_id in topic_ids}
+    return {
+        topic_id: YDH.topic_lifecycle(topic_id)["adoption_rate"]
+        for topic_id in topic_ids
+    }
 
 
 def peak_engagement_time(YDH: YDataHandler):
@@ -140,4 +145,6 @@ def peak_engagement_time(YDH: YDataHandler):
         :func:`adoption_rate`: Calculate topic adoption rates
     """
     topic_ids = _topic_ids(YDH)
-    return {topic_id: YDH.topic_lifecycle(topic_id)["peak_period"] for topic_id in topic_ids}
+    return {
+        topic_id: YDH.topic_lifecycle(topic_id)["peak_period"] for topic_id in topic_ids
+    }

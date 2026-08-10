@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 
-
 _TABLE_ALIASES = {
     "forum_messages": ("forum_chat_messages",),
     "forum_sessions": ("forum_chat_sessions",),
@@ -39,7 +38,9 @@ class ExperimentSchema:
 
         feature_checks = {
             "microblog": lambda: self.has_table("post"),
-            "forum": lambda: self.has_table("forum_chat_messages", "forum_chat_sessions"),
+            "forum": lambda: self.has_table(
+                "forum_chat_messages", "forum_chat_sessions"
+            ),
             "users": lambda: self.has_table("user_mgmt"),
             "posts": lambda: self.has_table("post"),
             "threads": lambda: self.has_table("post")
@@ -49,11 +50,14 @@ class ExperimentSchema:
             "reactions": lambda: self.has_table("reactions"),
             "recommendations": lambda: self.has_table("recommendations"),
             "mentions": lambda: self.has_table("mentions"),
-            "hashtags": lambda: self.has_table("hashtags") and self.has_table("post_hashtags"),
-            "topics": lambda: self.has_table("interests") and self.has_table("post_topics"),
+            "hashtags": lambda: self.has_table("hashtags")
+            and self.has_table("post_hashtags"),
+            "topics": lambda: self.has_table("interests")
+            and self.has_table("post_topics"),
             "sentiment": lambda: self.has_table("post_sentiment"),
             "toxicity": lambda: self.has_table("post_toxicity"),
-            "emotions": lambda: self.has_table("emotions") and self.has_table("post_emotions"),
+            "emotions": lambda: self.has_table("emotions")
+            and self.has_table("post_emotions"),
             "forum_sessions": lambda: self.has_table("forum_chat_sessions"),
             "forum_messages": lambda: self.has_table("forum_chat_messages"),
             "moderation": lambda: self.has_table("reported", "sys_messages"),

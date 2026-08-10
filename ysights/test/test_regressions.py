@@ -19,8 +19,7 @@ def _create_fixture_db():
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
-    cur.executescript(
-        """
+    cur.executescript("""
         CREATE TABLE post (
             id INTEGER PRIMARY KEY,
             tweet TEXT NOT NULL,
@@ -153,8 +152,7 @@ def _create_fixture_db():
             round INTEGER NOT NULL,
             reply_to INTEGER
         );
-        """
-    )
+        """)
 
     cur.executemany(
         "INSERT INTO post VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -308,7 +306,9 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(payload["profession"], "teacher")
 
     def test_toxicity_enrichment_reads_all_columns(self):
-        posts = self.handler.posts_by_agent(1, enrich_dimensions=["toxicity"]).get_posts()
+        posts = self.handler.posts_by_agent(
+            1, enrich_dimensions=["toxicity"]
+        ).get_posts()
         post = next(post for post in posts if post.id == 10)
 
         self.assertEqual(
@@ -583,8 +583,15 @@ class RegressionTestCase(unittest.TestCase):
 
         indexes = self.handler.recommended_indexes()
         self.assertGreater(indexes["count"], 0)
-        self.assertTrue(any(item["index_name"] == "idx_post_user_round" for item in indexes["suggestions"]))
-        self.assertTrue(all("CREATE INDEX" in item["sql"] for item in indexes["suggestions"]))
+        self.assertTrue(
+            any(
+                item["index_name"] == "idx_post_user_round"
+                for item in indexes["suggestions"]
+            )
+        )
+        self.assertTrue(
+            all("CREATE INDEX" in item["sql"] for item in indexes["suggestions"])
+        )
 
         benchmark = self.handler.benchmark_analytics(iterations=2)
         self.assertEqual(benchmark["iterations"], 2)
