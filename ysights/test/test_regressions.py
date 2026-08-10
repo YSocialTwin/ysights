@@ -138,9 +138,9 @@ def _create_fixture_db():
     cur.executemany(
         "INSERT INTO post VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            (10, "post-10", None, 1, None, 1, 1, None, None, None),
-            (11, "post-11", None, 1, None, 1, 5, None, None, None),
-            (12, "post-12", None, 2, None, 1, 5, None, None, None),
+            (10, "post-10", None, 1, -1, 10, 1, None, None, None),
+            (11, "post-11", None, 1, 10, 10, 3, None, None, None),
+            (12, "post-12", None, 2, 10, 10, 5, None, None, None),
         ],
     )
     cur.executemany(
@@ -385,6 +385,36 @@ class RegressionTestCase(unittest.TestCase):
         self.assertIsInstance(forum_sessions_df, pd.DataFrame)
         self.assertEqual(len(forum_sessions_df), 1)
         self.assertIn("title", forum_sessions_df.columns)
+
+    def test_thread_reconstruction_and_metrics(self):
+        self.assertEqual(self.handler.thread_ids(), [10])
+
+        posts = self.handler.thread_posts(10).get_posts()
+        self.assertEqual([post.id for post in posts], [10, 11, 12])
+
+        graph = self.handler.thread_graph(10)
+        self.assertEqual(graph.number_of_nodes(), 3)
+        self.assertEqual(graph.number_of_edges(), 2)
+        self.assertEqual(set(graph.successors(10)), {11, 12})
+
+        metrics = self.handler.thread_metrics(10)
+        self.assertEqual(metrics["thread_id"], 10)
+        self.assertEqual(metrics["root_post_id"], 10)
+        self.assertEqual(metrics["post_count"], 3)
+        self.assertEqual(metrics["reply_count"], 2)
+        self.assertEqual(metrics["participant_count"], 2)
+        self.assertEqual(metrics["max_depth"], 1)
+        self.assertEqual(metrics["branching_factor"], 2.0)
+        self.assertEqual(metrics["average_reply_latency"], 3.0)
+        self.assertEqual(metrics["median_reply_latency"], 3.0)
+        self.assertEqual(metrics["thread_span_rounds"], 4)
+        self.assertEqual(metrics["root_reply_count"], 2)
+        self.assertEqual(metrics["root_reply_share"], 1.0)
+        self.assertEqual(metrics["cascade_size"], 3)
+
+        summaries = self.handler.thread_summaries()
+        self.assertEqual(list(summaries.keys()), [10])
+        self.assertEqual(summaries[10]["post_count"], 3)
 
 
 if __name__ == "__main__":

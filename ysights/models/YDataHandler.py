@@ -2,6 +2,7 @@ import os
 import sqlite3
 from collections import defaultdict, namedtuple
 from functools import wraps
+from statistics import median
 from urllib.parse import urlparse
 
 import networkx as nx
@@ -454,6 +455,233 @@ class YDataHandler:
 
     def forum_sessions_frame(self, columns=None):
         return self.table_frame("forum_sessions", columns=columns)
+
+    def __resolve_thread_reference(self, thread_ref):
+        """
+        Resolve a thread reference to the canonical thread identifier used in the post table.
+
+        The reference can be either a root post id or an existing thread_id value.
+        """
+        rows = self.__execute_query("SELECT id, thread_id FROM post WHERE id = ?", (thread_ref,))
+        if rows:
+            post_id, thread_id = rows[0]
+            if thread_id not in (None, -1):
+                return thread_id
+            return post_id
+
+        rows = self.__execute_query(
+            "SELECT thread_id FROM post WHERE thread_id = ? LIMIT 1", (thread_ref,)
+        )
+        if rows:
+            return thread_ref
+
+        raise ValueError(f"Thread reference {thread_ref} does not exist in the database.")
+
+    def __thread_rows(self, thread_ref, from_round=None, to_round=None):
+        canonical_thread_id = self.__resolve_thread_reference(thread_ref)
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        query = (
+            "SELECT * FROM post "
+            "WHERE (thread_id = ? OR id = ?)"
+            f"{time_filter} "
+            "ORDER BY round ASC, id ASC"
+        )
+        rows = self.__execute_query(query, (canonical_thread_id, canonical_thread_id, *time_params))
+        return canonical_thread_id, rows
+
+    def __posts_from_rows(self, rows):
+        posts = Posts()
+        for row in rows:
+            posts.add_post(Post(row))
+        return posts
+
+    def __thread_graph_from_posts(self, posts):
+        g = nx.DiGraph()
+        post_ids = {post.id for post in posts}
+
+        for post in posts:
+            g.add_node(
+                post.id,
+                user_id=post.user_id,
+                round=post.round,
+                thread_id=post.thread_id,
+                comment_to=post.comment_to,
+                text=post.text,
+            )
+
+        for post in posts:
+            parent_id = post.comment_to
+            if parent_id in (None, -1):
+                continue
+            if parent_id in post_ids:
+                g.add_edge(parent_id, post.id)
+
+        return g
+
+    def __thread_metrics_from_posts(self, canonical_thread_id, posts):
+        if not posts:
+            return {
+                "thread_id": canonical_thread_id,
+                "root_post_id": None,
+                "post_count": 0,
+                "reply_count": 0,
+                "participant_count": 0,
+                "max_depth": 0,
+                "branching_factor": 0.0,
+                "average_reply_latency": 0.0,
+                "median_reply_latency": 0.0,
+                "thread_span_rounds": 0,
+                "root_reply_count": 0,
+                "root_reply_share": 0.0,
+                "cascade_size": 0,
+                "average_depth": 0.0,
+                "root_user_id": None,
+            }
+
+        graph = self.__thread_graph_from_posts(posts)
+        post_map = {post.id: post for post in posts}
+        root_candidates = [
+            post.id
+            for post in posts
+            if post.comment_to in (None, -1) or post.comment_to not in post_map
+        ]
+        if not root_candidates:
+            root_candidates = [posts[0].id]
+        root_post_id = min(root_candidates, key=lambda pid: post_map[pid].round)
+        root_post = post_map[root_post_id]
+
+        participants = {post.user_id for post in posts}
+        reply_latencies = [
+            post_map[child_id].round - post_map[parent_id].round
+            for parent_id, child_id in graph.edges()
+        ]
+
+        depths = {}
+        for node in graph.nodes():
+            try:
+                depths[node] = nx.shortest_path_length(graph, source=root_post_id, target=node)
+            except nx.NetworkXNoPath:
+                depths[node] = 0
+
+        non_leaf_nodes = [node for node in graph.nodes() if graph.out_degree(node) > 0]
+        branching_factor = (
+            sum(graph.out_degree(node) for node in non_leaf_nodes) / len(non_leaf_nodes)
+            if non_leaf_nodes
+            else 0.0
+        )
+
+        root_reply_count = graph.out_degree(root_post_id)
+        reply_count = graph.number_of_edges()
+        rounds = [post.round for post in posts]
+
+        metrics = {
+            "thread_id": canonical_thread_id,
+            "root_post_id": root_post_id,
+            "post_count": len(posts),
+            "reply_count": reply_count,
+            "participant_count": len(participants),
+            "max_depth": max(depths.values()) if depths else 0,
+            "average_depth": sum(depths.values()) / len(depths) if depths else 0.0,
+            "branching_factor": branching_factor,
+            "average_reply_latency": sum(reply_latencies) / len(reply_latencies) if reply_latencies else 0.0,
+            "median_reply_latency": float(median(reply_latencies)) if reply_latencies else 0.0,
+            "thread_span_rounds": max(rounds) - min(rounds),
+            "root_reply_count": root_reply_count,
+            "root_reply_share": root_reply_count / reply_count if reply_count else 0.0,
+            "cascade_size": len(posts),
+            "root_user_id": root_post.user_id,
+        }
+        return metrics
+
+    @_handle_db_connection
+    def thread_ids(self, from_round=None, to_round=None):
+        """
+        Return the canonical thread identifiers available in the dataset.
+
+        :return: List of canonical thread ids
+        :rtype: list[int]
+        """
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        query = (
+            "SELECT DISTINCT CASE WHEN p.thread_id IS NULL OR p.thread_id = -1 THEN p.id ELSE p.thread_id END AS thread_ref "
+            "FROM post AS p"
+            f"{time_filter} "
+            "ORDER BY thread_ref ASC"
+        )
+        rows = self.__execute_query(query, time_params)
+        return [row[0] for row in rows]
+
+    @_handle_db_connection
+    def thread_posts(self, thread_ref, from_round=None, to_round=None):
+        """
+        Retrieve all posts that belong to a thread.
+
+        :param thread_ref: Thread id or root post id
+        :return: Posts collection ordered by round and id
+        :rtype: Posts
+        """
+        _, rows = self.__thread_rows(thread_ref, from_round, to_round)
+        return self.__posts_from_rows(rows)
+
+    @_handle_db_connection
+    def thread_graph(self, thread_ref, from_round=None, to_round=None):
+        """
+        Reconstruct a conversation tree for a thread.
+
+        Nodes are posts; directed edges point from parent post to reply post.
+        """
+        _, rows = self.__thread_rows(thread_ref, from_round, to_round)
+        posts = self.__posts_from_rows(rows).get_posts()
+        return self.__thread_graph_from_posts(posts)
+
+    conversation_graph = thread_graph
+
+    @_handle_db_connection
+    def thread_metrics(self, thread_ref, from_round=None, to_round=None):
+        """
+        Compute conversation metrics for a thread.
+
+        Metrics include:
+        - post_count
+        - reply_count
+        - participant_count
+        - max_depth
+        - branching_factor
+        - average_reply_latency
+        - median_reply_latency
+        - thread_span_rounds
+        - root_post_id
+        - root_reply_count
+        - root_reply_share
+        - cascade_size
+        """
+        canonical_thread_id, rows = self.__thread_rows(thread_ref, from_round, to_round)
+        posts = self.__posts_from_rows(rows).get_posts()
+        return self.__thread_metrics_from_posts(canonical_thread_id, posts)
+
+    @_handle_db_connection
+    def thread_summaries(self, from_round=None, to_round=None):
+        """
+        Return conversation metrics for all threads in the dataset.
+
+        :return: Mapping of thread id to metrics dictionary
+        :rtype: dict[int, dict]
+        """
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        query = (
+            "SELECT DISTINCT CASE WHEN p.thread_id IS NULL OR p.thread_id = -1 THEN p.id ELSE p.thread_id END AS thread_ref "
+            "FROM post AS p"
+            f"{time_filter} "
+            "ORDER BY thread_ref ASC"
+        )
+        rows = self.__execute_query(query, time_params)
+        summaries = {}
+        for row in rows:
+            thread_ref = row[0]
+            _, thread_rows = self.__thread_rows(thread_ref, from_round, to_round)
+            posts = self.__posts_from_rows(thread_rows).get_posts()
+            summaries[thread_ref] = self.__thread_metrics_from_posts(thread_ref, posts)
+        return summaries
 
     # Time
     @_handle_db_connection
