@@ -111,6 +111,7 @@ class YDataHandler:
         self.db_path = db_path
         self.connection = None
         self._schema_cache = None
+        self._analysis_cache = {}
 
         # Detect database type
         if db_path.startswith("postgresql://") or db_path.startswith("postgres://"):
@@ -185,6 +186,47 @@ class YDataHandler:
         if self.connection:
             self.connection.close()
             self.connection = None
+
+    def __cache_key(self, name, *args, **kwargs):
+        """
+        Build a stable cache key for derived analytics.
+        """
+        return (
+            name,
+            tuple(args),
+            tuple(sorted(kwargs.items())),
+        )
+
+    def __analysis_cache_get(self, name, *args, **kwargs):
+        return self._analysis_cache.get(self.__cache_key(name, *args, **kwargs))
+
+    def __analysis_cache_set(self, value, name, *args, **kwargs):
+        self._analysis_cache[self.__cache_key(name, *args, **kwargs)] = value
+        return value
+
+    def __analysis_cache_info(self):
+        """
+        Inspect the current derived-data cache.
+        """
+        return {
+            "entry_count": len(self._analysis_cache),
+            "keys": [key[0] for key in self._analysis_cache.keys()],
+        }
+
+    @_handle_db_connection
+    def clear_analysis_cache(self):
+        """
+        Clear cached derived analytics.
+        """
+        self._analysis_cache.clear()
+        return True
+
+    @_handle_db_connection
+    def analysis_cache_info(self):
+        """
+        Report cache usage for derived analytics.
+        """
+        return self.__analysis_cache_info()
 
     def __get_cursor(self):
         """
@@ -929,6 +971,16 @@ class YDataHandler:
         """
         Summarize the lifecycle of a topic.
         """
+        cached = self.__analysis_cache_get(
+            "topic_lifecycle",
+            topic_id,
+            granularity=granularity,
+            from_round=from_round,
+            to_round=to_round,
+        )
+        if cached is not None:
+            return cached
+
         timeline = self.__topic_activity_frame(
             topic_id,
             granularity=granularity,
@@ -936,7 +988,7 @@ class YDataHandler:
             to_round=to_round,
         )
         if timeline.empty:
-            return {
+            result = {
                 "topic_id": topic_id,
                 "granularity": granularity,
                 "timeline": timeline,
@@ -951,6 +1003,14 @@ class YDataHandler:
                 "adoption_rate": 0.0,
                 "half_life_period": None,
             }
+            return self.__analysis_cache_set(
+                result,
+                "topic_lifecycle",
+                topic_id,
+                granularity=granularity,
+                from_round=from_round,
+                to_round=to_round,
+            )
 
         timeline = timeline.copy()
         timeline["cumulative_posts"] = timeline["posts"].cumsum()
@@ -980,7 +1040,7 @@ class YDataHandler:
                 half_life_period = row["period"]
                 break
 
-        return {
+        result = {
             "topic_id": topic_id,
             "granularity": granularity,
             "timeline": timeline,
@@ -995,6 +1055,14 @@ class YDataHandler:
             "adoption_rate": adoption_rate,
             "half_life_period": half_life_period,
         }
+        return self.__analysis_cache_set(
+            result,
+            "topic_lifecycle",
+            topic_id,
+            granularity=granularity,
+            from_round=from_round,
+            to_round=to_round,
+        )
 
     def __text_profile(self, text):
         """
@@ -1045,17 +1113,25 @@ class YDataHandler:
         """
         Extract semantic surface features for a microblog post.
         """
+        cached = self.__analysis_cache_get("post_semantic_profile", post_id)
+        if cached is not None:
+            return cached
+
         query = "SELECT tweet FROM post WHERE id = ?"
         data = self.__execute_query(query, (post_id,))
         if not data:
             raise ValueError(f"Post ID {post_id} does not exist in the database.")
-        return self.__text_profile(data[0][0])
+        return self.__analysis_cache_set(self.__text_profile(data[0][0]), "post_semantic_profile", post_id)
 
     @_handle_db_connection
     def forum_message_semantic_profile(self, message_id):
         """
         Extract semantic surface features for a forum message.
         """
+        cached = self.__analysis_cache_get("forum_message_semantic_profile", message_id)
+        if cached is not None:
+            return cached
+
         schema = self.__get_schema()
         table_name = schema.resolve_table("forum_messages")
         if schema.has_column(table_name, "content"):
@@ -1069,7 +1145,11 @@ class YDataHandler:
         data = self.__execute_query(query, (message_id,))
         if not data:
             raise ValueError(f"Forum message ID {message_id} does not exist in the database.")
-        return self.__text_profile(data[0][0])
+        return self.__analysis_cache_set(
+            self.__text_profile(data[0][0]),
+            "forum_message_semantic_profile",
+            message_id,
+        )
 
     # Time
     @_handle_db_connection
@@ -2029,6 +2109,15 @@ class YDataHandler:
         """
         Build a compact profile for a user from their content and interaction traces.
         """
+        cached = self.__analysis_cache_get(
+            "user_profile_summary",
+            agent_id,
+            from_round=from_round,
+            to_round=to_round,
+        )
+        if cached is not None:
+            return cached
+
         schema = self.__get_schema()
         post_rows = self.__agent_posts_rows(agent_id, from_round=from_round, to_round=to_round)
 
@@ -2119,7 +2208,7 @@ class YDataHandler:
         else:
             segment = "observer"
 
-        return {
+        result = {
             "agent_id": agent_id,
             "from_round": from_round,
             "to_round": to_round,
@@ -2135,15 +2224,26 @@ class YDataHandler:
             "semantic_profile": semantic_profile,
             "segment": segment,
         }
+        return self.__analysis_cache_set(
+            result,
+            "user_profile_summary",
+            agent_id,
+            from_round=from_round,
+            to_round=to_round,
+        )
 
     @_handle_db_connection
     def profile_drift(self, agent_id, split_round=None):
         """
         Compare a user's early and late profiles across a round boundary.
         """
+        cached = self.__analysis_cache_get("profile_drift", agent_id, split_round=split_round)
+        if cached is not None:
+            return cached
+
         rows = self.__agent_posts_rows(agent_id)
         if not rows:
-            return {
+            result = {
                 "agent_id": agent_id,
                 "split_round": split_round,
                 "early": self.user_profile_summary(agent_id, to_round=split_round),
@@ -2155,6 +2255,12 @@ class YDataHandler:
                 "post_count_delta": 0,
                 "segment_shift": None,
             }
+            return self.__analysis_cache_set(
+                result,
+                "profile_drift",
+                agent_id,
+                split_round=split_round,
+            )
 
         if split_round is None:
             midpoint = len(rows) // 2
@@ -2172,7 +2278,7 @@ class YDataHandler:
                 return 0.0
             return len(left_keys & right_keys) / len(union)
 
-        return {
+        result = {
             "agent_id": agent_id,
             "split_round": split_round,
             "early": early,
@@ -2184,6 +2290,12 @@ class YDataHandler:
             "post_count_delta": late["post_count"] - early["post_count"],
             "segment_shift": f"{early['segment']}->{late['segment']}",
         }
+        return self.__analysis_cache_set(
+            result,
+            "profile_drift",
+            agent_id,
+            split_round=split_round,
+        )
 
     @_handle_db_connection
     def user_segments(self, from_round=None, to_round=None, graph=None):
@@ -2359,7 +2471,13 @@ class YDataHandler:
         """
         Summarize reported-content and moderation signals.
         """
-        import pandas as pd
+        cached = self.__analysis_cache_get(
+            "moderation_summary",
+            from_round=from_round,
+            to_round=to_round,
+        )
+        if cached is not None:
+            return cached
 
         schema = self.__get_schema()
         reports = self.__reported_posts_frame(from_round=from_round, to_round=to_round)
@@ -2396,7 +2514,12 @@ class YDataHandler:
             summary["sys_message_count"] = len(self.table_frame("sys_messages"))
         else:
             summary["sys_message_count"] = 0
-        return summary
+        return self.__analysis_cache_set(
+            summary,
+            "moderation_summary",
+            from_round=from_round,
+            to_round=to_round,
+        )
 
     @_handle_db_connection
     def moderation_hotspots(self, top_n=10, from_round=None, to_round=None):
@@ -2452,6 +2575,10 @@ class YDataHandler:
         """
         Summarize a forum conversation session.
         """
+        cached = self.__analysis_cache_get("forum_session_summary", session_id)
+        if cached is not None:
+            return cached
+
         sessions_table = self.__get_schema().resolve_table("forum_sessions")
         session_rows, session_columns = self.__execute_query_with_columns(
             f"SELECT * FROM {sessions_table} WHERE id = ?", (session_id,)
@@ -2462,7 +2589,7 @@ class YDataHandler:
         session_row = dict(zip(session_columns, session_rows[0]))
         messages = self.__forum_session_message_frame(session_id)
         if messages.empty:
-            return {
+            result = {
                 "session_id": session_id,
                 "message_count": 0,
                 "participant_count": 0,
@@ -2473,6 +2600,11 @@ class YDataHandler:
                 "target_user_id": session_row.get("target_user_id"),
                 "last_message_preview": session_row.get("last_message_preview"),
             }
+            return self.__analysis_cache_set(
+                result,
+                "forum_session_summary",
+                session_id,
+            )
 
         schema = self.__get_schema()
         participant_count = 0
@@ -2512,7 +2644,7 @@ class YDataHandler:
             role_counts = {}
             turn_balance = 1.0 if len(messages) <= 1 else 0.5
 
-        return {
+        result = {
             "session_id": session_id,
             "message_count": int(len(messages)),
             "participant_count": participant_count,
@@ -2524,25 +2656,34 @@ class YDataHandler:
             "target_user_id": session_row.get("target_user_id"),
             "last_message_preview": session_row.get("last_message_preview"),
         }
+        return self.__analysis_cache_set(result, "forum_session_summary", session_id)
 
     @_handle_db_connection
     def forum_session_summaries(self):
         """
         Summarize every forum session in the dataset.
         """
+        cached = self.__analysis_cache_get("forum_session_summaries")
+        if cached is not None:
+            return cached
+
         sessions_table = self.__get_schema().resolve_table("forum_sessions")
         sessions = self.__execute_query(f"SELECT id FROM {sessions_table} ORDER BY id ASC")
         summaries = {}
         for row in sessions:
             session_id = int(row[0])
             summaries[session_id] = self.forum_session_summary(session_id)
-        return summaries
+        return self.__analysis_cache_set(summaries, "forum_session_summaries")
 
     @_handle_db_connection
     def summary_report(self):
         """
         Produce a high-level report for the current experiment.
         """
+        cached = self.__analysis_cache_get("summary_report")
+        if cached is not None:
+            return cached
+
         schema = self.__get_schema()
         report = {
             "db_path": self.db_path,
@@ -2608,7 +2749,7 @@ class YDataHandler:
             if schema.has_table("mentions")
             else 0
         )
-        return report
+        return self.__analysis_cache_set(report, "summary_report")
 
     @_handle_db_connection
     def summary_frame(self):
@@ -2617,7 +2758,111 @@ class YDataHandler:
         """
         import pandas as pd
 
-        return pd.DataFrame([self.summary_report()])
+        cached = self.__analysis_cache_get("summary_frame")
+        if cached is not None:
+            return cached
+
+        frame = pd.DataFrame([self.summary_report()])
+        return self.__analysis_cache_set(frame, "summary_frame")
+
+    @_handle_db_connection
+    def recommended_indexes(self):
+        """
+        Return a practical set of index recommendations for common analytics paths.
+        """
+        schema = self.__get_schema()
+        suggestions = []
+
+        def add(table_name, index_name, columns):
+            if schema.has_table(table_name):
+                resolved_table = schema.resolve_table(table_name)
+                suggestions.append(
+                    {
+                        "table": resolved_table,
+                        "index_name": index_name,
+                        "columns": columns,
+                        "sql": f"CREATE INDEX IF NOT EXISTS {index_name} ON {resolved_table} ({', '.join(columns)});",
+                    }
+                )
+
+        add("post", "idx_post_user_round", ["user_id", "round"])
+        add("post", "idx_post_thread_round", ["thread_id", "round"])
+        add("post", "idx_post_comment_to", ["comment_to"])
+        add("post", "idx_post_round", ["round"])
+        add("reactions", "idx_reactions_user_round", ["user_id", "round"])
+        add("reactions", "idx_reactions_post", ["post_id"])
+        add("recommendations", "idx_recommendations_user_round", ["user_id", "round"])
+        add("mentions", "idx_mentions_user_round", ["user_id", "round"])
+        add("mentions", "idx_mentions_post", ["post_id"])
+        add("post_topics", "idx_post_topics_topic_post", ["topic_id", "post_id"])
+        add("post_hashtags", "idx_post_hashtags_post", ["post_id", "hashtag_id"])
+        add("user_interest", "idx_user_interest_user_round", ["user_id", "round_id"])
+        add("user_interest", "idx_user_interest_interest", ["interest_id"])
+        add("follow", "idx_follow_user_round", ["user_id", "round"])
+        add("follow", "idx_follow_follower_round", ["follower_id", "round"])
+        add("forum_chat_messages", "idx_forum_messages_session", ["session_id", "id"])
+        add("reported", "idx_reported_post", ["to_post"])
+        add("reported", "idx_reported_user", ["to_uid"])
+        add("reported", "idx_reported_thread", ["tid"])
+        add("post_toxicity", "idx_post_toxicity_post", ["post_id"])
+        add("post_sentiment", "idx_post_sentiment_post", ["post_id"])
+        add("post_emotions", "idx_post_emotions_post", ["post_id"])
+
+        return {
+            "suggestions": suggestions,
+            "count": len(suggestions),
+        }
+
+    @_handle_db_connection
+    def benchmark_analytics(self, iterations=3):
+        """
+        Measure a small set of analytics paths and cache their outputs.
+        """
+        import time
+
+        metrics = {}
+        targets = []
+
+        if self.__get_schema().has_table("post"):
+            targets.append(("summary_report", self.summary_report))
+            targets.append(("summary_frame", self.summary_frame))
+
+        if self.__get_schema().has_table("reported"):
+            targets.append(("moderation_summary", self.moderation_summary))
+
+        if self.__get_schema().has_table("forum_chat_sessions"):
+            targets.append(("forum_session_summaries", self.forum_session_summaries))
+
+        if self.__get_schema().supports_feature("topics"):
+            topic_rows = self.__execute_query("SELECT DISTINCT topic_id FROM post_topics ORDER BY topic_id ASC")
+            if topic_rows:
+                first_topic = int(topic_rows[0][0])
+                targets.append((f"topic_lifecycle[{first_topic}]", lambda: self.topic_lifecycle(first_topic)))
+
+        if self.__get_schema().has_table("user_mgmt"):
+            targets.append(("user_segments", self.user_segments))
+
+        for name, func in targets:
+            self._analysis_cache.clear()
+            warm = func()
+            warm_times = []
+            for _ in range(max(iterations, 1)):
+                start = time.perf_counter()
+                func()
+                warm_times.append(time.perf_counter() - start)
+            metrics[name] = {
+                "cached": name in self.__analysis_cache_info()["keys"],
+                "warmup_type": type(warm).__name__,
+                "iterations": max(iterations, 1),
+                "average_seconds": sum(warm_times) / len(warm_times),
+                "min_seconds": min(warm_times),
+                "max_seconds": max(warm_times),
+            }
+
+        return {
+            "iterations": max(iterations, 1),
+            "metrics": metrics,
+        }
 
     @_handle_db_connection
     def export_summary_csv(self, path):

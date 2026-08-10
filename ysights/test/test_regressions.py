@@ -566,6 +566,34 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(comparison["metrics"]["post_count"]["delta"], 0)
         self.assertEqual(comparison["metrics"]["report_count"]["delta"], 0)
 
+    def test_phase6_performance_hardening(self):
+        cache_info = self.handler.analysis_cache_info()
+        self.assertEqual(cache_info["entry_count"], 0)
+
+        report_first = self.handler.summary_report()
+        report_second = self.handler.summary_report()
+        self.assertEqual(report_first, report_second)
+
+        cache_info = self.handler.analysis_cache_info()
+        self.assertGreaterEqual(cache_info["entry_count"], 1)
+        self.assertIn("summary_report", cache_info["keys"])
+
+        self.assertTrue(self.handler.clear_analysis_cache())
+        self.assertEqual(self.handler.analysis_cache_info()["entry_count"], 0)
+
+        indexes = self.handler.recommended_indexes()
+        self.assertGreater(indexes["count"], 0)
+        self.assertTrue(any(item["index_name"] == "idx_post_user_round" for item in indexes["suggestions"]))
+        self.assertTrue(all("CREATE INDEX" in item["sql"] for item in indexes["suggestions"]))
+
+        benchmark = self.handler.benchmark_analytics(iterations=2)
+        self.assertEqual(benchmark["iterations"], 2)
+        self.assertGreater(len(benchmark["metrics"]), 0)
+        for metric in benchmark["metrics"].values():
+            self.assertGreaterEqual(metric["average_seconds"], 0.0)
+            self.assertGreaterEqual(metric["min_seconds"], 0.0)
+            self.assertGreaterEqual(metric["max_seconds"], metric["min_seconds"])
+
         with tempfile.TemporaryDirectory() as tmpdir:
             csv_path = os.path.join(tmpdir, "summary.csv")
             json_path = os.path.join(tmpdir, "summary.json")
