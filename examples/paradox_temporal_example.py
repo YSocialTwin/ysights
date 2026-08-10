@@ -25,7 +25,7 @@ from ysights.algorithms import visibility_paradox_temporal
 from ysights.viz import paradox_temporal_evolution
 
 # Initialize data handler with your YSocial simulation database
-ydh = YDataHandler('path/to/your/database.db')
+ydh = YDataHandler('/Users/rossetti/PycharmProjects/visibility_paradox/data/old_data/BA_FP.db')
 network = ydh.social_network()
 
 print("Computing INCREMENTAL temporal evolution of visibility paradox...")

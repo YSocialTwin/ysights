@@ -18,7 +18,7 @@ from ysights.algorithms import visibility_paradox_per_degree_class
 from ysights.viz import paradox_significance_per_degree_class
 
 # Initialize data handler with your YSocial simulation database
-ydh = YDataHandler('path/to/your/database.db')
+ydh = YDataHandler('/Users/rossetti/PycharmProjects/visibility_paradox/data/old_data/BA_FP.db')
 network = ydh.social_network()
 
 print("Computing visibility paradox per degree class...")
@@ -31,7 +31,7 @@ results = visibility_paradox_per_degree_class(
     ydh, 
     network, 
     N=100,  # Number of null models for statistical testing
-    num_bins=10  # Number of degree bins
+    num_bins=20  # Number of degree bins
 )
 
 # Display results
