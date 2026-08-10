@@ -44,8 +44,8 @@ See Also:
 from .paradox import (
     user_visibility_vs_neighbors,
     visibility_paradox,
-    visibility_paradox_population_size_null,
     visibility_paradox_per_degree_class,
+    visibility_paradox_population_size_null,
     visibility_paradox_temporal,
 )
 from .profiles import profile_topics_similarity

@@ -52,7 +52,7 @@ References:
     - Friendship paradox (Feld, 1991)
     - Attention inequality in social networks
     - Filter bubble and echo chamber effects
-    
+
     For detailed mathematical formulation and theoretical background, see:
     docs/VISIBILITY_PARADOX.md - Complete mathematical description with formulas,
     assumptions, null model construction, and statistical testing methodology.
@@ -531,17 +531,19 @@ def visibility_paradox_population_size_null(
     return results
 
 
-def __stats_with_degrees(users_to_impressions_total, user_to_posts_read, user_to_posts, g):
+def __stats_with_degrees(
+    users_to_impressions_total, user_to_posts_read, user_to_posts, g
+):
     """
     Calculate the visibility paradox metric for each user in the graph along with their degree.
-    
+
     :param users_to_impressions_total: the total number of impressions for each user
     :param user_to_posts_read: the posts suggested to each user
     :param user_to_posts: the posts associated with each user
     :param g: the social network graph
     :return: tuple of (list of coefficients, list of degrees, list of node ids)
     """
-    
+
     delta = []
     degrees = []
     node_ids = []
@@ -552,13 +554,13 @@ def __stats_with_degrees(users_to_impressions_total, user_to_posts_read, user_to
             for v in g.neighbors(n):
                 # cicla sui post di v e conta se compaiono in user_to_posts_read
                 p_tot = 0
-                
+
                 # quanti contenuti del mio vicino mi sono stati suggeriti
                 if v in user_to_posts:
                     for post in user_to_posts[v]:
                         if post in read:
                             p_tot += 1
-                
+
                 # quanti miei contenuti sono stati suggeriti al mio vicino
                 v_tot = 0
                 v_read = {pid: None for pid in set(user_to_posts_read[v])}
@@ -566,26 +568,28 @@ def __stats_with_degrees(users_to_impressions_total, user_to_posts_read, user_to
                     for post in user_to_posts[n]:
                         if post in v_read:
                             v_tot += 1
-                
+
                 # suggerimenti ricevuti - suggerimenti dei miei contenuti
                 scores.append(p_tot - v_tot)
-            
+
             node_degree = nx.degree(g, n)
             delta.append((1 / node_degree) * sum(scores))
             degrees.append(node_degree)
             node_ids.append(n)
-    
+
     return delta, degrees, node_ids
 
 
-def visibility_paradox_per_degree_class(YDH: YDataHandler, g, N=100, bins=None, num_bins=10):
+def visibility_paradox_per_degree_class(
+    YDH: YDataHandler, g, N=100, bins=None, num_bins=10
+):
     """
     Calculate the statistical significance of the visibility paradox per degree class.
-    
-    This function computes the paradox score and its statistical significance for each 
-    degree class (bin) of nodes. By default, it uses linear binning but allows users 
+
+    This function computes the paradox score and its statistical significance for each
+    degree class (bin) of nodes. By default, it uses linear binning but allows users
     to specify custom bin edges.
-    
+
     :param YDH: YDataHandler, the data handler containing the YSocial simulation data
     :param g: networkx.Graph, the social network graph
     :param N: int, number of null models to generate for statistical testing
@@ -598,25 +602,25 @@ def visibility_paradox_per_degree_class(YDH: YDataHandler, g, N=100, bins=None, 
         - 'z_scores': z-score per bin (statistical significance)
         - 'p_values': p-value per bin
         - 'bin_counts': number of nodes in each bin
-    
+
     Example:
         >>> from ysights import YDataHandler
         >>> from ysights.algorithms.paradox import visibility_paradox_per_degree_class
-        >>> 
+        >>>
         >>> ydh = YDataHandler('path/to/database.db')
         >>> network = ydh.social_network()
-        >>> 
+        >>>
         >>> # Using default linear binning
         >>> results = visibility_paradox_per_degree_class(ydh, network, N=100, num_bins=10)
-        >>> 
+        >>>
         >>> # Using custom bin edges
         >>> custom_bins = [0, 5, 10, 20, 50, 100]
         >>> results = visibility_paradox_per_degree_class(ydh, network, N=100, bins=custom_bins)
     """
-    
+
     post_recs, user_to_posts_read = YDH.recommendations_per_post_per_user()
     posts = YDH.posts()
-    
+
     post_to_users = {}
     user_to_posts = {}
     for pts in posts.get_posts():
@@ -625,58 +629,58 @@ def visibility_paradox_per_degree_class(YDH: YDataHandler, g, N=100, bins=None, 
             pts.id = int(pts.id)
         except Exception:
             pass
-        
+
         if pts.user_id not in user_to_posts:
             user_to_posts[pts.user_id] = [pts.id]
         else:
             user_to_posts[pts.user_id].append(pts.id)
         post_to_users[pts.id] = pts.user_id
-    
+
     users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
     users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
-    
+
     # Get coefficients with degrees for the observed data
     nodes_coeffs, node_degrees, node_ids = __stats_with_degrees(
         users_to_impressions_total, user_to_posts_read, user_to_posts, g
     )
-    
+
     # Create bins if not provided (linear binning by default)
     if bins is None:
         min_deg = min(node_degrees) if node_degrees else 0
         max_deg = max(node_degrees) if node_degrees else 1
         bins = np.linspace(min_deg, max_deg, num_bins + 1)
-    
+
     bins = np.array(bins)
-    
+
     # Bin the observed data
     bin_indices = np.digitize(node_degrees, bins) - 1
-    
+
     # Initialize result containers
     paradox_scores = []
     z_scores = []
     p_values = []
     bin_counts = []
     bin_centers = []
-    
+
     # Generate null models
     if N > 0:
         user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
             user_to_posts, N, x=1
         )
-        
+
         # Collect null distributions for each bin
         null_distributions = defaultdict(list)
-        
+
         for i in range(len(user_to_posts_list)):
             u_to_p_n = user_to_posts_list[i]
             users_to_impressions_n = __user_impressions_mapping(post_recs, u_to_p_n)
             coeffs_null, degrees_null, _ = __stats_with_degrees(
                 users_to_impressions_n, user_to_posts_read, u_to_p_n, g
             )
-            
+
             # Bin the null data using the same bins
             bin_indices_null = np.digitize(degrees_null, bins) - 1
-            
+
             # Aggregate by bin
             for bin_idx in range(len(bins) - 1):
                 bin_mask = bin_indices_null == bin_idx
@@ -684,21 +688,27 @@ def visibility_paradox_per_degree_class(YDH: YDataHandler, g, N=100, bins=None, 
                     # Get coefficients for this bin and compute mean
                     bin_coeffs_null = np.array(coeffs_null)[bin_mask]
                     null_distributions[bin_idx].append(np.mean(bin_coeffs_null))
-    
+
     # Compute statistics per bin
     for bin_idx in range(len(bins) - 1):
         bin_mask = np.array(bin_indices) == bin_idx
         bin_coeffs = np.array(nodes_coeffs)[bin_mask]
-        
+
         if len(bin_coeffs) > 0:
             observed_mean = np.mean(bin_coeffs)
             paradox_scores.append(observed_mean)
             bin_counts.append(len(bin_coeffs))
             bin_centers.append((bins[bin_idx] + bins[bin_idx + 1]) / 2)
-            
-            if N > 0 and bin_idx in null_distributions and len(null_distributions[bin_idx]) > 0:
+
+            if (
+                N > 0
+                and bin_idx in null_distributions
+                and len(null_distributions[bin_idx]) > 0
+            ):
                 try:
-                    z_score, p_value = __z_test(observed_mean, null_distributions[bin_idx])
+                    z_score, p_value = __z_test(
+                        observed_mean, null_distributions[bin_idx]
+                    )
                     z_scores.append(z_score)
                     p_values.append(p_value)
                 except ValueError:
@@ -715,26 +725,28 @@ def visibility_paradox_per_degree_class(YDH: YDataHandler, g, N=100, bins=None, 
             p_values.append(np.nan)
             bin_counts.append(0)
             bin_centers.append((bins[bin_idx] + bins[bin_idx + 1]) / 2)
-    
+
     return {
-        'bin_edges': bins,
-        'bin_centers': np.array(bin_centers),
-        'paradox_scores': np.array(paradox_scores),
-        'z_scores': np.array(z_scores),
-        'p_values': np.array(p_values),
-        'bin_counts': np.array(bin_counts),
+        "bin_edges": bins,
+        "bin_centers": np.array(bin_centers),
+        "paradox_scores": np.array(paradox_scores),
+        "z_scores": np.array(z_scores),
+        "p_values": np.array(p_values),
+        "bin_counts": np.array(bin_counts),
     }
 
 
-def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0), N=100):
+def visibility_paradox_temporal(
+    YDH: YDataHandler, g, temporal_granularity=(1, 0), N=100
+):
     """
     Calculate the visibility paradox over time with user-defined temporal granularity.
-    
+
     This function tracks how the visibility paradox evolves during the simulation by
     computing the paradox score at regular time intervals using INCREMENTAL/CUMULATIVE data.
     Each time point uses all data from the start of the simulation up to that time point,
     showing how the paradox strengthens or changes as more data accumulates.
-    
+
     :param YDH: YDataHandler, the data handler containing the YSocial simulation data
     :param g: networkx.Graph, the social network graph (can be full network or time-specific)
     :param temporal_granularity: tuple of (days, hours) defining the time intervals
@@ -747,80 +759,86 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
         - 'z_scores': array of z-scores over time
         - 'p_values': array of p-values over time
         - 'temporal_granularity': the temporal granularity used (days, hours)
-    
+
     Note:
-        The computation is INCREMENTAL - each time point includes all data from the 
+        The computation is INCREMENTAL - each time point includes all data from the
         simulation start up to that point. For example, with daily granularity:
         - Day 1: All data from start to day 1
         - Day 2: All data from start to day 2
         - Day 3: All data from start to day 3
         This shows how the paradox evolves as the network and content accumulate.
-    
+
     Example:
         >>> from ysights import YDataHandler
         >>> from ysights.algorithms.paradox import visibility_paradox_temporal
-        >>> 
+        >>>
         >>> ydh = YDataHandler('path/to/database.db')
         >>> network = ydh.social_network()
-        >>> 
+        >>>
         >>> # Compute paradox every day (incrementally)
         >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(1, 0), N=50)
-        >>> 
+        >>>
         >>> # Compute paradox every 12 hours (incrementally)
         >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(0, 12), N=50)
-        >>> 
+        >>>
         >>> # Compute paradox every 26 hours (incrementally)
         >>> results = visibility_paradox_temporal(ydh, network, temporal_granularity=(1, 2), N=50)
     """
-    
+
     days_inc, hours_inc = temporal_granularity
-    
+
     # Validate temporal granularity
     if days_inc < 0 or hours_inc < 0:
         raise ValueError("Temporal granularity values must be non-negative")
     if days_inc == 0 and hours_inc == 0:
-        raise ValueError("Temporal granularity must be positive (at least one of days or hours must be > 0)")
-    
+        raise ValueError(
+            "Temporal granularity must be positive (at least one of days or hours must be > 0)"
+        )
+
     # Get time range from simulation
     time_range = YDH.time_range()
-    min_round = time_range['min_round']
-    max_round = time_range['max_round']
-    
+    min_round = time_range["min_round"]
+    max_round = time_range["max_round"]
+
     # Convert min and max rounds to time
     start_time = YDH.round_to_time(min_round)
     end_time = YDH.round_to_time(max_round)
-    
-    start_day = start_time['day']
-    start_hour = start_time['hour']
-    end_day = end_time['day']
-    end_hour = end_time['hour']
-    
+
+    start_day = start_time["day"]
+    start_hour = start_time["hour"]
+    end_day = end_time["day"]
+    end_hour = end_time["hour"]
+
     # Convert temporal granularity to hours for easier calculation
     granularity_hours = days_inc * 24 + hours_inc
-    
+
     # Generate time points (cumulative endpoints)
     time_points = []
     paradox_scores = []
     z_scores = []
     p_values = []
-    
+
     # Start from the initial time point
     current_day = start_day
     current_hour = start_hour
-    
+
     # Calculate first endpoint
     end_window_hour = current_hour + granularity_hours
     end_window_day = current_day + (end_window_hour // 24)
     end_window_hour = end_window_hour % 24
-    
+
     while True:
         # Check if we've passed the simulation end
-        if end_window_day > end_day or (end_window_day == end_day and end_window_hour > end_hour):
+        if end_window_day > end_day or (
+            end_window_day == end_day and end_window_hour > end_hour
+        ):
             break
-        
+
         try:
             # Get round IDs for this time window
-            from_round = YDH.time_to_round(start_day, start_hour)  # Always start from beginning
+            from_round = YDH.time_to_round(
+                start_day, start_hour
+            )  # Always start from beginning
             to_round = YDH.time_to_round(end_window_day, end_window_hour)
         except ValueError:
             # If exact time doesn't exist, skip this window
@@ -828,7 +846,7 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
             end_window_day += end_window_hour // 24
             end_window_hour = end_window_hour % 24
             continue
-        
+
         # Get data for this time window (CUMULATIVE: from start to current endpoint)
         # Note: We use the full network graph but filter posts/recommendations by time
         try:
@@ -837,7 +855,7 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
                 start_day=start_day,  # Always from the beginning
                 start_hour=start_hour,  # Always from the beginning
                 end_day=end_window_day,  # Up to current endpoint
-                end_hour=end_window_hour  # Up to current endpoint
+                end_hour=end_window_hour,  # Up to current endpoint
             )
             if not round_ids:
                 # No rounds in this window, skip
@@ -845,55 +863,57 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
                 end_window_day += end_window_hour // 24
                 end_window_hour = end_window_hour % 24
                 continue
-            
+
             valid_round_ids = set(round_ids)
-            
+
             # Extract posts for this cumulative time range
             all_posts = YDH.posts()
             post_recs, user_to_posts_read = YDH.recommendations_per_post_per_user()
-            
+
             # Filter posts by cumulative time range using round ID set
             user_to_posts = {}
             post_to_users = {}
             for pts in all_posts.get_posts():
                 # Check if post is within cumulative range
-                if hasattr(pts, 'round') and pts.round in valid_round_ids:
+                if hasattr(pts, "round") and pts.round in valid_round_ids:
                     try:
                         pts.user_id = int(pts.user_id)
                         pts.id = int(pts.id)
                     except Exception:
                         pass
-                    
+
                     if pts.user_id not in user_to_posts:
                         user_to_posts[pts.user_id] = [pts.id]
                     else:
                         user_to_posts[pts.user_id].append(pts.id)
                     post_to_users[pts.id] = pts.user_id
-            
+
             # If no posts in this range, skip
             if len(user_to_posts) == 0:
                 end_window_hour += granularity_hours
                 end_window_day += end_window_hour // 24
                 end_window_hour = end_window_hour % 24
                 continue
-            
+
             users_to_impressions = __user_impressions_mapping(post_recs, user_to_posts)
-            users_to_impressions_total = {u: sum(v) for u, v in users_to_impressions.items()}
-            
+            users_to_impressions_total = {
+                u: sum(v) for u, v in users_to_impressions.items()
+            }
+
             # Compute paradox for this cumulative range
             nodes_coeffs = __stats(
                 users_to_impressions_total, user_to_posts_read, user_to_posts, g
             )
-            
+
             if len(nodes_coeffs) == 0:
                 # Skip if no coefficients could be computed
                 end_window_hour += granularity_hours
                 end_window_day += end_window_hour // 24
                 end_window_hour = end_window_hour % 24
                 continue
-            
+
             paradox_score = np.mean(nodes_coeffs)
-            
+
             # Generate null models for this cumulative range
             if N > 0:
                 user_to_posts_list, post_to_user_list = __generate_randomized_mappings(
@@ -902,36 +922,40 @@ def visibility_paradox_temporal(YDH: YDataHandler, g, temporal_granularity=(1, 0
                 null_means_dist = []
                 for i in range(len(user_to_posts_list)):
                     u_to_p_n = user_to_posts_list[i]
-                    users_to_impressions_n = __user_impressions_mapping(post_recs, u_to_p_n)
+                    users_to_impressions_n = __user_impressions_mapping(
+                        post_recs, u_to_p_n
+                    )
                     mean = np.mean(
                         __stats(users_to_impressions_n, user_to_posts_read, u_to_p_n, g)
                     )
                     null_means_dist.append(mean)
-                
+
                 z_score, p_value = __z_test(paradox_score, null_means_dist)
             else:
                 z_score = None
                 p_value = None
-            
+
             # Record results (endpoint represents cumulative data up to this point)
             time_points.append((end_window_day, end_window_hour, to_round))
             paradox_scores.append(paradox_score)
             z_scores.append(z_score)
             p_values.append(p_value)
-            
+
         except Exception as e:
             # Skip windows that cause errors
-            print(f"Warning: Error computing paradox for cumulative window up to day {end_window_day}, hour {end_window_hour}: {e}")
-        
+            print(
+                f"Warning: Error computing paradox for cumulative window up to day {end_window_day}, hour {end_window_hour}: {e}"
+            )
+
         # Move to next endpoint
         end_window_hour += granularity_hours
         end_window_day += end_window_hour // 24
         end_window_hour = end_window_hour % 24
-    
+
     return {
-        'time_points': time_points,
-        'paradox_scores': np.array(paradox_scores),
-        'z_scores': np.array(z_scores),
-        'p_values': np.array(p_values),
-        'temporal_granularity': temporal_granularity,
+        "time_points": time_points,
+        "paradox_scores": np.array(paradox_scores),
+        "z_scores": np.array(z_scores),
+        "p_values": np.array(p_values),
+        "temporal_granularity": temporal_granularity,
     }
