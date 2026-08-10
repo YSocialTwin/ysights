@@ -130,6 +130,15 @@ def _create_fixture_db():
             answered INTEGER
         );
 
+        CREATE TABLE reported (
+            id INTEGER PRIMARY KEY,
+            type TEXT NOT NULL,
+            to_uid INTEGER,
+            to_post INTEGER,
+            from_uid INTEGER,
+            tid INTEGER
+        );
+
         CREATE TABLE forum_chat_sessions (
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
@@ -225,6 +234,13 @@ def _create_fixture_db():
         [
             (1, 20, 10, 1, 0),
             (2, 30, 11, 5, 0),
+        ],
+    )
+    cur.executemany(
+        "INSERT INTO reported VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (1, "abuse", 1, 10, 2, 10),
+            (2, "spam", 1, 10, 2, 10),
         ],
     )
     cur.execute(
@@ -514,6 +530,49 @@ class RegressionTestCase(unittest.TestCase):
         self.assertGreaterEqual(community["edge_count"], 1)
         self.assertGreaterEqual(community["cross_community_edge_ratio"], 0.0)
         self.assertLessEqual(community["cross_community_edge_ratio"], 1.0)
+
+    def test_phase5_moderation_forum_and_reporting(self):
+        moderation = self.handler.moderation_summary()
+        self.assertEqual(moderation["report_count"], 2)
+        self.assertEqual(moderation["unique_reported_posts"], 1)
+        self.assertEqual(moderation["unique_reporters"], 1)
+        self.assertEqual(moderation["report_types"], {"abuse": 1, "spam": 1})
+
+        hotspots = self.handler.moderation_hotspots(top_n=2)
+        self.assertEqual(list(hotspots["entity_type"]), ["post", "user"])
+        self.assertEqual(list(hotspots["entity_id"]), [10, 1])
+
+        session = self.handler.forum_session_summary(1)
+        self.assertEqual(session["message_count"], 2)
+        self.assertEqual(session["participant_count"], 2)
+        self.assertEqual(session["reply_count"], 1)
+        self.assertEqual(session["session_span"], 4)
+
+        sessions = self.handler.forum_session_summaries()
+        self.assertIn(1, sessions)
+        self.assertEqual(sessions[1]["message_count"], 2)
+
+        report = self.handler.summary_report()
+        self.assertEqual(report["report_count"], 2)
+        self.assertEqual(report["forum_session_count"], 1)
+        self.assertEqual(report["forum_message_count"], 2)
+        self.assertEqual(report["post_count"], 3)
+
+        summary_frame = self.handler.summary_frame()
+        self.assertIsInstance(summary_frame, pd.DataFrame)
+        self.assertEqual(int(summary_frame.iloc[0]["report_count"]), 2)
+
+        comparison = self.handler.compare_experiments(self.db_path)
+        self.assertEqual(comparison["metrics"]["post_count"]["delta"], 0)
+        self.assertEqual(comparison["metrics"]["report_count"]["delta"], 0)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            csv_path = os.path.join(tmpdir, "summary.csv")
+            json_path = os.path.join(tmpdir, "summary.json")
+            self.assertEqual(self.handler.export_summary_csv(csv_path), csv_path)
+            self.assertEqual(self.handler.export_summary_json(json_path), json_path)
+            self.assertTrue(os.path.exists(csv_path))
+            self.assertTrue(os.path.exists(json_path))
 
 
 if __name__ == "__main__":

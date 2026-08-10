@@ -2297,6 +2297,387 @@ class YDataHandler:
             "leaning_alignment_ratio": leaning_alignment_ratio,
         }
 
+    def __forum_messages_table(self):
+        """
+        Resolve the active forum messages table name.
+        """
+        schema = self.__get_schema()
+        return schema.resolve_table("forum_messages")
+
+    def __forum_message_text_column(self, table_name=None):
+        """
+        Resolve the active forum message text column name.
+        """
+        schema = self.__get_schema()
+        table_name = table_name or self.__forum_messages_table()
+        for column_name in ("content", "message", "text"):
+            if schema.has_column(table_name, column_name):
+                return column_name
+        raise ValueError("Forum message text column was not found in this dataset.")
+
+    def __reported_posts_frame(self, from_round=None, to_round=None):
+        """
+        Build a dataframe of reported content events.
+        """
+        import pandas as pd
+
+        schema = self.__get_schema()
+        if not schema.has_table("reported"):
+            return pd.DataFrame()
+
+        time_filter = ""
+        params = []
+        if schema.has_table("post"):
+            time_filter, params = self.__build_time_filter(from_round, to_round, "p.round")
+
+        query = (
+            "SELECT r.id AS report_id, r.type AS report_type, r.to_uid AS reported_user_id, "
+            "r.to_post AS reported_post_id, r.from_uid AS reporter_user_id, r.tid AS thread_id"
+        )
+        if schema.has_table("post"):
+            query += ", p.round AS post_round, p.thread_id AS post_thread_id"
+        query += " FROM reported AS r"
+        if schema.has_table("post"):
+            query += " LEFT JOIN post AS p ON p.id = r.to_post"
+            query += f" WHERE 1=1{time_filter}"
+        query += " ORDER BY r.id ASC"
+        rows = self.__execute_query(query, tuple(params))
+        columns = [
+            "report_id",
+            "report_type",
+            "reported_user_id",
+            "reported_post_id",
+            "reporter_user_id",
+            "thread_id",
+        ]
+        if schema.has_table("post"):
+            columns.extend(["post_round", "post_thread_id"])
+        return pd.DataFrame(rows, columns=columns)
+
+    @_handle_db_connection
+    def moderation_summary(self, from_round=None, to_round=None):
+        """
+        Summarize reported-content and moderation signals.
+        """
+        import pandas as pd
+
+        schema = self.__get_schema()
+        reports = self.__reported_posts_frame(from_round=from_round, to_round=to_round)
+        report_types = {}
+        if not reports.empty:
+            report_types = reports["report_type"].value_counts().to_dict()
+
+        moderated_posts = 0
+        moderated_comments = 0
+        if schema.has_table("post") and schema.has_column("post", "moderated"):
+            time_filter, params = self.__build_time_filter(from_round, to_round, "p.round")
+            query = (
+                "SELECT "
+                "COUNT(*) AS moderated_posts, "
+                "SUM(CASE WHEN p.is_moderation_comment IS NOT NULL AND p.is_moderation_comment != 0 THEN 1 ELSE 0 END) AS moderation_comments "
+                "FROM post AS p "
+                f"WHERE p.moderated IS NOT NULL AND p.moderated != 0{time_filter}"
+            )
+            rows = self.__execute_query(query, params)
+            if rows:
+                moderated_posts = int(rows[0][0] or 0)
+                moderated_comments = int(rows[0][1] or 0)
+
+        summary = {
+            "report_count": int(len(reports)),
+            "unique_reported_posts": int(reports["reported_post_id"].nunique()) if not reports.empty else 0,
+            "unique_reported_users": int(reports["reported_user_id"].nunique()) if not reports.empty else 0,
+            "unique_reporters": int(reports["reporter_user_id"].nunique()) if not reports.empty else 0,
+            "report_types": report_types,
+            "moderated_posts": moderated_posts,
+            "moderation_comments": moderated_comments,
+        }
+        if schema.has_table("sys_messages"):
+            summary["sys_message_count"] = len(self.table_frame("sys_messages"))
+        else:
+            summary["sys_message_count"] = 0
+        return summary
+
+    @_handle_db_connection
+    def moderation_hotspots(self, top_n=10, from_round=None, to_round=None):
+        """
+        Rank the most frequently reported users and posts.
+        """
+        import pandas as pd
+
+        reports = self.__reported_posts_frame(from_round=from_round, to_round=to_round)
+        if reports.empty:
+            return pd.DataFrame(columns=["entity_type", "entity_id", "report_count"])
+
+        post_counts = (
+            reports.groupby("reported_post_id")
+            .size()
+            .reset_index(name="report_count")
+            .rename(columns={"reported_post_id": "entity_id"})
+        )
+        post_counts.insert(0, "entity_type", "post")
+
+        user_counts = (
+            reports.groupby("reported_user_id")
+            .size()
+            .reset_index(name="report_count")
+            .rename(columns={"reported_user_id": "entity_id"})
+        )
+        user_counts.insert(0, "entity_type", "user")
+
+        combined = pd.concat([post_counts, user_counts], ignore_index=True)
+        combined = combined.sort_values(["report_count", "entity_type", "entity_id"], ascending=[False, True, True])
+        return combined.head(top_n).reset_index(drop=True)
+
+    def __forum_session_message_frame(self, session_id):
+        """
+        Load the messages for a forum session as a dataframe.
+        """
+        import pandas as pd
+
+        table_name = self.__forum_messages_table()
+        text_column = self.__forum_message_text_column(table_name)
+        schema = self.__get_schema()
+        columns = ["id", "session_id", text_column]
+        optional_columns = []
+        for column_name in ("role", "meta_json", "created_at", "round", "user_id", "reply_to"):
+            if schema.has_column(table_name, column_name):
+                optional_columns.append(column_name)
+        query = f"SELECT {', '.join(columns + optional_columns)} FROM {table_name} WHERE session_id = ? ORDER BY id ASC"
+        rows = self.__execute_query(query, (session_id,))
+        return pd.DataFrame(rows, columns=["id", "session_id", text_column, *optional_columns])
+
+    @_handle_db_connection
+    def forum_session_summary(self, session_id):
+        """
+        Summarize a forum conversation session.
+        """
+        sessions_table = self.__get_schema().resolve_table("forum_sessions")
+        session_rows, session_columns = self.__execute_query_with_columns(
+            f"SELECT * FROM {sessions_table} WHERE id = ?", (session_id,)
+        )
+        if not session_rows:
+            raise ValueError(f"Forum session ID {session_id} does not exist in the database.")
+
+        session_row = dict(zip(session_columns, session_rows[0]))
+        messages = self.__forum_session_message_frame(session_id)
+        if messages.empty:
+            return {
+                "session_id": session_id,
+                "message_count": 0,
+                "participant_count": 0,
+                "reply_count": 0,
+                "turn_balance": 0.0,
+                "session_span": None,
+                "owner_user_id": session_row.get("owner_user_id"),
+                "target_user_id": session_row.get("target_user_id"),
+                "last_message_preview": session_row.get("last_message_preview"),
+            }
+
+        schema = self.__get_schema()
+        participant_count = 0
+        if "user_id" in messages.columns:
+            participant_count = int(messages["user_id"].nunique())
+        elif "role" in messages.columns:
+            participant_count = int(messages["role"].nunique())
+        elif schema.has_column(sessions_table, "owner_user_id") and schema.has_column(sessions_table, "target_user_id"):
+            participant_count = len(
+                {
+                    session_row.get("owner_user_id"),
+                    session_row.get("target_user_id"),
+                }
+                - {None, ""}
+            )
+
+        reply_count = 0
+        if "reply_to" in messages.columns:
+            reply_count = int(messages["reply_to"].notna().sum())
+        elif "role" in messages.columns:
+            reply_count = max(int(len(messages) - 1), 0)
+
+        if "round" in messages.columns and not messages["round"].isna().all():
+            session_span = int(messages["round"].max() - messages["round"].min())
+        elif "created_at" in messages.columns:
+            session_span = f"{messages['created_at'].min()}..{messages['created_at'].max()}"
+        else:
+            session_span = None
+
+        if "role" in messages.columns:
+            role_counts = messages["role"].value_counts().to_dict()
+            turn_balance = 0.0
+            if len(role_counts) > 1:
+                counts = list(role_counts.values())
+                turn_balance = min(counts) / max(counts)
+        else:
+            role_counts = {}
+            turn_balance = 1.0 if len(messages) <= 1 else 0.5
+
+        return {
+            "session_id": session_id,
+            "message_count": int(len(messages)),
+            "participant_count": participant_count,
+            "reply_count": reply_count,
+            "turn_balance": turn_balance,
+            "session_span": session_span,
+            "role_counts": role_counts,
+            "owner_user_id": session_row.get("owner_user_id"),
+            "target_user_id": session_row.get("target_user_id"),
+            "last_message_preview": session_row.get("last_message_preview"),
+        }
+
+    @_handle_db_connection
+    def forum_session_summaries(self):
+        """
+        Summarize every forum session in the dataset.
+        """
+        sessions_table = self.__get_schema().resolve_table("forum_sessions")
+        sessions = self.__execute_query(f"SELECT id FROM {sessions_table} ORDER BY id ASC")
+        summaries = {}
+        for row in sessions:
+            session_id = int(row[0])
+            summaries[session_id] = self.forum_session_summary(session_id)
+        return summaries
+
+    @_handle_db_connection
+    def summary_report(self):
+        """
+        Produce a high-level report for the current experiment.
+        """
+        schema = self.__get_schema()
+        report = {
+            "db_path": self.db_path,
+            "db_type": self.db_type,
+            "capabilities": schema.describe()["features"],
+            "table_count": len(schema.tables),
+        }
+
+        if schema.has_table("user_mgmt"):
+            users_table = schema.resolve_table("users")
+            report["user_count"] = int(self.__execute_query(f"SELECT COUNT(*) FROM {users_table}")[0][0])
+        else:
+            report["user_count"] = 0
+
+        if schema.has_table("post"):
+            post_rows, post_columns = self.__execute_query_with_columns("SELECT * FROM post")
+            post_index = {column_name: idx for idx, column_name in enumerate(post_columns)}
+            report["post_count"] = len(post_rows)
+            if "comment_to" in post_index:
+                report["reply_count"] = int(
+                    sum(
+                        1
+                        for row in post_rows
+                        if row[post_index["comment_to"]] not in (None, -1)
+                    )
+                )
+            else:
+                report["reply_count"] = 0
+            thread_rows = self.__execute_query(
+                "SELECT DISTINCT CASE WHEN thread_id IS NULL OR thread_id = -1 THEN id ELSE thread_id END FROM post"
+            )
+            report["thread_count"] = len(thread_rows)
+        else:
+            report["post_count"] = 0
+            report["reply_count"] = 0
+            report["thread_count"] = 0
+
+        if schema.supports_feature("topics"):
+            topic_rows = self.__execute_query("SELECT COUNT(DISTINCT topic_id) FROM post_topics")
+            report["topic_count"] = int(topic_rows[0][0]) if topic_rows else 0
+        else:
+            report["topic_count"] = 0
+
+        report["report_count"] = len(self.__reported_posts_frame()) if schema.has_table("reported") else 0
+        try:
+            sessions_table = schema.resolve_table("forum_sessions")
+            report["forum_session_count"] = int(self.__execute_query(f"SELECT COUNT(*) FROM {sessions_table}")[0][0])
+        except KeyError:
+            report["forum_session_count"] = 0
+
+        try:
+            messages_table = schema.resolve_table("forum_messages")
+            report["forum_message_count"] = int(self.__execute_query(f"SELECT COUNT(*) FROM {messages_table}")[0][0])
+        except KeyError:
+            report["forum_message_count"] = 0
+        report["social_edge_count"] = (
+            int(self.__execute_query("SELECT COUNT(*) FROM follow")[0][0])
+            if schema.has_table("follow")
+            else 0
+        )
+        report["mention_edge_count"] = (
+            int(self.__execute_query("SELECT COUNT(*) FROM mentions")[0][0])
+            if schema.has_table("mentions")
+            else 0
+        )
+        return report
+
+    @_handle_db_connection
+    def summary_frame(self):
+        """
+        Return the summary report as a one-row dataframe.
+        """
+        import pandas as pd
+
+        return pd.DataFrame([self.summary_report()])
+
+    @_handle_db_connection
+    def export_summary_csv(self, path):
+        """
+        Export the experiment summary report to CSV.
+        """
+        self.summary_frame().to_csv(path, index=False)
+        return path
+
+    @_handle_db_connection
+    def export_summary_json(self, path):
+        """
+        Export the experiment summary report to JSON.
+        """
+        import json
+
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(self.summary_report(), handle, indent=2, sort_keys=True, default=str)
+        return path
+
+    @_handle_db_connection
+    def compare_experiments(self, other, metrics=None):
+        """
+        Compare this experiment with another dataset or handler.
+        """
+        if isinstance(other, YDataHandler):
+            other_handler = other
+        else:
+            other_handler = YDataHandler(other)
+
+        left = self.summary_report()
+        right = other_handler.summary_report()
+        if metrics is None:
+            metrics = sorted(set(left.keys()) & set(right.keys()))
+
+        comparison = {}
+        for metric in metrics:
+            left_value = left.get(metric)
+            right_value = right.get(metric)
+            if isinstance(left_value, (int, float)) and isinstance(right_value, (int, float)):
+                delta = right_value - left_value
+                comparison[metric] = {
+                    "left": left_value,
+                    "right": right_value,
+                    "delta": delta,
+                    "relative_change": (delta / left_value) if left_value else None,
+                }
+            else:
+                comparison[metric] = {
+                    "left": left_value,
+                    "right": right_value,
+                    "equal": left_value == right_value,
+                }
+
+        return {
+            "left": left,
+            "right": right,
+            "metrics": comparison,
+        }
+
     # Network Extraction Methods #
     @_handle_db_connection
     def ego_network_follower(self, agent_id, from_round=None, to_round=None):
