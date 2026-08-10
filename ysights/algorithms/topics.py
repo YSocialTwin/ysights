@@ -30,6 +30,15 @@ Example:
 from ysights import YDataHandler
 
 
+def _topic_ids(YDH: YDataHandler):
+    if YDH is None:
+        raise ValueError("A YDataHandler instance is required.")
+    if not YDH.supports_feature("topics"):
+        raise ValueError("Topic analysis is not available in this dataset.")
+    rows = YDH.custom_query("SELECT DISTINCT topic_id FROM post_topics ORDER BY topic_id")
+    return [row[0] for row in rows]
+
+
 def topic_spread(YDH: YDataHandler):
     """
     Analyze the spread of topics across the social network.
@@ -59,7 +68,8 @@ def topic_spread(YDH: YDataHandler):
         :func:`adoption_rate`: Calculate topic adoption rates
         :func:`peak_engagement_time`: Find peak engagement times
     """
-    raise NotImplementedError("topic_spread is not implemented yet.")
+    topic_ids = _topic_ids(YDH)
+    return {topic_id: YDH.topic_lifecycle(topic_id) for topic_id in topic_ids}
 
 
 def adoption_rate(YDH: YDataHandler):
@@ -93,7 +103,8 @@ def adoption_rate(YDH: YDataHandler):
         :func:`topic_spread`: Analyze topic spread patterns
         :func:`peak_engagement_time`: Find peak engagement times
     """
-    raise NotImplementedError("adoption_rate is not implemented yet.")
+    topic_ids = _topic_ids(YDH)
+    return {topic_id: YDH.topic_lifecycle(topic_id)["adoption_rate"] for topic_id in topic_ids}
 
 
 def peak_engagement_time(YDH: YDataHandler):
@@ -128,4 +139,5 @@ def peak_engagement_time(YDH: YDataHandler):
         :func:`topic_spread`: Analyze topic spread patterns
         :func:`adoption_rate`: Calculate topic adoption rates
     """
-    raise NotImplementedError("peak_engagement_time is not implemented yet.")
+    topic_ids = _topic_ids(YDH)
+    return {topic_id: YDH.topic_lifecycle(topic_id)["peak_period"] for topic_id in topic_ids}

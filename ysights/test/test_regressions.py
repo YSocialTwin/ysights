@@ -370,14 +370,20 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(set(mentions_to.successors(1)), {20})
 
     def test_placeholder_public_apis_raise(self):
-        for func in (
-            topic_spread,
-            adoption_rate,
-            peak_engagement_time,
-            sentiment_diffusion_metrics,
-        ):
-            with self.assertRaises(NotImplementedError):
-                func(None)
+        spread = topic_spread(self.handler)
+        self.assertIn(200, spread)
+        self.assertEqual(spread[200]["peak_period"], 1)
+        self.assertEqual(spread[201]["peak_period"], 5)
+
+        adoption = adoption_rate(self.handler)
+        self.assertEqual(adoption[200], 1.0)
+        self.assertEqual(adoption[201], 1.0)
+
+        peaks = peak_engagement_time(self.handler)
+        self.assertEqual(peaks, {200: 1, 201: 5})
+
+        with self.assertRaises(NotImplementedError):
+            sentiment_diffusion_metrics(None)
 
     def test_schema_capabilities_and_frames(self):
         schema = self.handler.schema()
@@ -470,6 +476,44 @@ class RegressionTestCase(unittest.TestCase):
         topic_timeline_day = self.handler.topic_timeline(200, granularity="day")
         self.assertEqual(list(topic_timeline_day["period"]), [0, 1])
         self.assertEqual(list(topic_timeline_day["posts"]), [1, 1])
+
+    def test_phase4_intelligence_analytics(self):
+        lifecycle = self.handler.topic_lifecycle(200)
+        self.assertEqual(lifecycle["topic_id"], 200)
+        self.assertEqual(lifecycle["post_count"], 2)
+        self.assertEqual(lifecycle["author_count"], 1)
+        self.assertEqual(lifecycle["peak_period"], 1)
+        self.assertEqual(lifecycle["adoption_rate"], 1.0)
+        self.assertIn("timeline", lifecycle)
+        self.assertEqual(list(lifecycle["timeline"]["period"]), [1, 3])
+
+        post_profile = self.handler.post_semantic_profile(10)
+        self.assertGreaterEqual(post_profile["token_count"], 1)
+        self.assertIn("entropy_proxy", post_profile)
+
+        forum_profile = self.handler.forum_message_semantic_profile(1)
+        self.assertEqual(forum_profile["token_count"], 2)
+
+        user_summary = self.handler.user_profile_summary(1)
+        self.assertEqual(user_summary["segment"], "conversationalist")
+        self.assertEqual(user_summary["post_count"], 2)
+        self.assertEqual(user_summary["reply_count"], 1)
+        self.assertEqual(user_summary["topic_counts"], {"sports": 2})
+
+        drift = self.handler.profile_drift(1, split_round=2)
+        self.assertEqual(drift["topic_jaccard"], 1.0)
+        self.assertEqual(drift["post_count_delta"], 0)
+        self.assertEqual(drift["segment_shift"], "observer->conversationalist")
+
+        segments = self.handler.user_segments()
+        self.assertEqual(set(segments["segment"]), {"conversationalist"})
+
+        community = self.handler.community_metrics(graph_type="social")
+        self.assertGreaterEqual(community["community_count"], 1)
+        self.assertGreaterEqual(community["node_count"], 1)
+        self.assertGreaterEqual(community["edge_count"], 1)
+        self.assertGreaterEqual(community["cross_community_edge_ratio"], 0.0)
+        self.assertLessEqual(community["cross_community_edge_ratio"], 1.0)
 
 
 if __name__ == "__main__":

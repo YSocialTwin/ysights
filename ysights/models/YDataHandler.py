@@ -890,6 +890,20 @@ class YDataHandler:
         """
         Track the growth of a topic over time.
         """
+        timeline = self.__topic_activity_frame(
+            topic_id,
+            granularity=granularity,
+            from_round=from_round,
+            to_round=to_round,
+        )
+        if timeline.empty:
+            return timeline
+        return timeline[["period", "posts"]]
+
+    def __topic_activity_frame(self, topic_id, granularity="round", from_round=None, to_round=None):
+        """
+        Build a topic timeline enriched with author counts.
+        """
         if not self.__get_schema().supports_feature("topics"):
             raise ValueError("Topic analysis is not available in this dataset.")
 
@@ -898,7 +912,9 @@ class YDataHandler:
         period_expr, period_join = self.__period_clause("p", "round", granularity)
         time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
         query = (
-            f"SELECT {period_expr} AS period, COUNT(*) AS posts "
+            f"SELECT {period_expr} AS period, "
+            "COUNT(DISTINCT p.id) AS posts, "
+            "COUNT(DISTINCT p.user_id) AS authors "
             "FROM post_topics AS pt "
             "JOIN post AS p ON p.id = pt.post_id"
             f"{period_join}"
@@ -906,7 +922,154 @@ class YDataHandler:
             "GROUP BY period ORDER BY period ASC"
         )
         rows = self.__execute_query(query, (topic_id, *time_params))
-        return pd.DataFrame(rows, columns=["period", "posts"])
+        return pd.DataFrame(rows, columns=["period", "posts", "authors"])
+
+    @_handle_db_connection
+    def topic_lifecycle(self, topic_id, granularity="round", from_round=None, to_round=None):
+        """
+        Summarize the lifecycle of a topic.
+        """
+        timeline = self.__topic_activity_frame(
+            topic_id,
+            granularity=granularity,
+            from_round=from_round,
+            to_round=to_round,
+        )
+        if timeline.empty:
+            return {
+                "topic_id": topic_id,
+                "granularity": granularity,
+                "timeline": timeline,
+                "post_count": 0,
+                "author_count": 0,
+                "period_count": 0,
+                "first_period": None,
+                "last_period": None,
+                "peak_period": None,
+                "peak_posts": 0,
+                "peak_share": 0.0,
+                "adoption_rate": 0.0,
+                "half_life_period": None,
+            }
+
+        timeline = timeline.copy()
+        timeline["cumulative_posts"] = timeline["posts"].cumsum()
+        timeline["cumulative_authors"] = timeline["authors"].cumsum()
+
+        total_posts = int(timeline["posts"].sum())
+        author_query = (
+            "SELECT COUNT(DISTINCT p.user_id) "
+            "FROM post_topics AS pt "
+            "JOIN post AS p ON p.id = pt.post_id "
+            "WHERE pt.topic_id = ?"
+        )
+        author_rows = self.__execute_query(author_query, (topic_id,))
+        total_authors = int(author_rows[0][0]) if author_rows else 0
+        first_period = timeline.iloc[0]["period"]
+        last_period = timeline.iloc[-1]["period"]
+        peak_index = timeline["posts"].idxmax()
+        peak_period = timeline.loc[peak_index, "period"]
+        peak_posts = int(timeline.loc[peak_index, "posts"])
+        peak_share = (peak_posts / total_posts) if total_posts else 0.0
+        period_count = int(len(timeline))
+        adoption_rate = (total_posts / period_count) if period_count else 0.0
+        half_life_threshold = total_posts / 2.0 if total_posts else 0.0
+        half_life_period = None
+        for _, row in timeline.iterrows():
+            if row["cumulative_posts"] >= half_life_threshold:
+                half_life_period = row["period"]
+                break
+
+        return {
+            "topic_id": topic_id,
+            "granularity": granularity,
+            "timeline": timeline,
+            "post_count": total_posts,
+            "author_count": total_authors,
+            "period_count": period_count,
+            "first_period": first_period,
+            "last_period": last_period,
+            "peak_period": peak_period,
+            "peak_posts": peak_posts,
+            "peak_share": peak_share,
+            "adoption_rate": adoption_rate,
+            "half_life_period": half_life_period,
+        }
+
+    def __text_profile(self, text):
+        """
+        Extract lightweight semantic features from a text string.
+        """
+        import math
+        import re
+        import string
+        from collections import Counter
+
+        text = text or ""
+        tokens = re.findall(r"[#@]?\w+(?:'\w+)?", text)
+        words = [token for token in tokens if not token.startswith("#") and not token.startswith("@")]
+        lower_word_counts = Counter(word.lower() for word in words)
+        alpha_chars = [ch for ch in text if ch.isalpha()]
+        upper_chars = [ch for ch in alpha_chars if ch.isupper()]
+        punctuation_chars = [ch for ch in text if ch in string.punctuation]
+        urls = re.findall(r"https?://\S+|www\.\S+", text)
+
+        word_lengths = [len(word) for word in words]
+        avg_word_length = (sum(word_lengths) / len(word_lengths)) if word_lengths else 0.0
+        unique_words = {word.lower() for word in words}
+
+        return {
+            "character_count": len(text),
+            "token_count": len(tokens),
+            "word_count": len(words),
+            "unique_word_count": len(unique_words),
+            "type_token_ratio": (len(unique_words) / len(words)) if words else 0.0,
+            "avg_word_length": avg_word_length,
+            "url_count": len(urls),
+            "hashtag_count": sum(1 for token in tokens if token.startswith("#")),
+            "mention_count": sum(1 for token in tokens if token.startswith("@")),
+            "punctuation_count": len(punctuation_chars),
+            "punctuation_ratio": (len(punctuation_chars) / len(text)) if text else 0.0,
+            "uppercase_ratio": (len(upper_chars) / len(alpha_chars)) if alpha_chars else 0.0,
+            "digit_count": sum(ch.isdigit() for ch in text),
+            "entropy_proxy": -sum(
+                (count / len(words)) * math.log(count / len(words), 2)
+                for count in lower_word_counts.values()
+            )
+            if words
+            else 0.0,
+        }
+
+    @_handle_db_connection
+    def post_semantic_profile(self, post_id):
+        """
+        Extract semantic surface features for a microblog post.
+        """
+        query = "SELECT tweet FROM post WHERE id = ?"
+        data = self.__execute_query(query, (post_id,))
+        if not data:
+            raise ValueError(f"Post ID {post_id} does not exist in the database.")
+        return self.__text_profile(data[0][0])
+
+    @_handle_db_connection
+    def forum_message_semantic_profile(self, message_id):
+        """
+        Extract semantic surface features for a forum message.
+        """
+        schema = self.__get_schema()
+        table_name = schema.resolve_table("forum_messages")
+        if schema.has_column(table_name, "content"):
+            column_name = "content"
+        elif schema.has_column(table_name, "message"):
+            column_name = "message"
+        else:
+            raise ValueError("Forum message text column was not found in this dataset.")
+
+        query = f"SELECT {column_name} FROM {table_name} WHERE id = ?"
+        data = self.__execute_query(query, (message_id,))
+        if not data:
+            raise ValueError(f"Forum message ID {message_id} does not exist in the database.")
+        return self.__text_profile(data[0][0])
 
     # Time
     @_handle_db_connection
@@ -1853,6 +2016,287 @@ class YDataHandler:
 
         return toxicity
 
+    def __agent_posts_rows(self, agent_id, from_round=None, to_round=None):
+        """
+        Load raw post rows for an agent, optionally filtered by round.
+        """
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "round")
+        query = f"SELECT * FROM post WHERE user_id = ?{time_filter} ORDER BY round ASC, id ASC"
+        return self.__execute_query(query, (agent_id, *time_params))
+
+    @_handle_db_connection
+    def user_profile_summary(self, agent_id, from_round=None, to_round=None):
+        """
+        Build a compact profile for a user from their content and interaction traces.
+        """
+        schema = self.__get_schema()
+        post_rows = self.__agent_posts_rows(agent_id, from_round=from_round, to_round=to_round)
+
+        dimensions = []
+        for feature_name, dimension in (
+            ("topics", "topics"),
+            ("emotions", "emotions"),
+            ("toxicity", "toxicity"),
+            ("mentions", "mentions"),
+            ("hashtags", "hashtags"),
+        ):
+            if schema.supports_feature(feature_name):
+                dimensions.append(dimension)
+
+        posts = Posts()
+        cursor = self.__get_cursor()
+        for row in post_rows:
+            post = Post(row)
+            if dimensions:
+                post.enrich_post(cursor, dimensions)
+            posts.add_post(post)
+
+        post_list = posts.get_posts()
+        post_count = len(post_list)
+        reply_count = sum(1 for post in post_list if post.comment_to not in (None, -1))
+        original_post_count = post_count - reply_count
+        reply_ratio = (reply_count / post_count) if post_count else 0.0
+
+        topic_counts = defaultdict(int)
+        emotion_counts = defaultdict(int)
+        hashtag_counts = defaultdict(int)
+        toxicity_scores = defaultdict(list)
+        semantic_profiles = []
+
+        for post in post_list:
+            semantic_profiles.append(self.__text_profile(post.text))
+            for topic in post.topics:
+                topic_counts[topic] += 1
+            for emotion in post.emotions:
+                emotion_counts[emotion] += 1
+            for hashtag in post.hashtags:
+                hashtag_counts[hashtag] += 1
+            if post.toxicity:
+                for key, value in post.toxicity.items():
+                    toxicity_scores[key].append(value)
+
+        avg_toxicity = (
+            sum(toxicity_scores["toxicity"]) / len(toxicity_scores["toxicity"])
+            if toxicity_scores["toxicity"]
+            else 0.0
+        )
+        toxicity_max = max(toxicity_scores["toxicity"]) if toxicity_scores["toxicity"] else 0.0
+
+        if semantic_profiles:
+            semantic_profile = {}
+            for key in semantic_profiles[0].keys():
+                semantic_profile[key] = sum(profile[key] for profile in semantic_profiles) / len(
+                    semantic_profiles
+                )
+        else:
+            semantic_profile = {
+                "character_count": 0.0,
+                "token_count": 0.0,
+                "word_count": 0.0,
+                "unique_word_count": 0.0,
+                "type_token_ratio": 0.0,
+                "avg_word_length": 0.0,
+                "url_count": 0.0,
+                "hashtag_count": 0.0,
+                "mention_count": 0.0,
+                "punctuation_count": 0.0,
+                "punctuation_ratio": 0.0,
+                "uppercase_ratio": 0.0,
+                "digit_count": 0.0,
+                "entropy_proxy": 0.0,
+            }
+
+        if post_count == 0:
+            segment = "lurker"
+        elif avg_toxicity >= 0.5:
+            segment = "polarized"
+        elif reply_ratio >= 0.5:
+            segment = "conversationalist"
+        elif len(topic_counts) >= 3:
+            segment = "multitopic"
+        elif post_count >= 5:
+            segment = "active_poster"
+        else:
+            segment = "observer"
+
+        return {
+            "agent_id": agent_id,
+            "from_round": from_round,
+            "to_round": to_round,
+            "post_count": post_count,
+            "reply_count": reply_count,
+            "original_post_count": original_post_count,
+            "reply_ratio": reply_ratio,
+            "topic_counts": dict(topic_counts),
+            "emotion_counts": dict(emotion_counts),
+            "hashtag_counts": dict(hashtag_counts),
+            "avg_toxicity": avg_toxicity,
+            "max_toxicity": toxicity_max,
+            "semantic_profile": semantic_profile,
+            "segment": segment,
+        }
+
+    @_handle_db_connection
+    def profile_drift(self, agent_id, split_round=None):
+        """
+        Compare a user's early and late profiles across a round boundary.
+        """
+        rows = self.__agent_posts_rows(agent_id)
+        if not rows:
+            return {
+                "agent_id": agent_id,
+                "split_round": split_round,
+                "early": self.user_profile_summary(agent_id, to_round=split_round),
+                "late": self.user_profile_summary(agent_id, from_round=split_round),
+                "topic_jaccard": 0.0,
+                "emotion_jaccard": 0.0,
+                "toxicity_delta": 0.0,
+                "reply_ratio_delta": 0.0,
+                "post_count_delta": 0,
+                "segment_shift": None,
+            }
+
+        if split_round is None:
+            midpoint = len(rows) // 2
+            split_round = rows[midpoint][6]
+
+        early = self.user_profile_summary(agent_id, to_round=split_round)
+        late_from_round = split_round + 1 if isinstance(split_round, int) else split_round
+        late = self.user_profile_summary(agent_id, from_round=late_from_round)
+
+        def _jaccard(left, right):
+            left_keys = set(left.keys())
+            right_keys = set(right.keys())
+            union = left_keys | right_keys
+            if not union:
+                return 0.0
+            return len(left_keys & right_keys) / len(union)
+
+        return {
+            "agent_id": agent_id,
+            "split_round": split_round,
+            "early": early,
+            "late": late,
+            "topic_jaccard": _jaccard(early["topic_counts"], late["topic_counts"]),
+            "emotion_jaccard": _jaccard(early["emotion_counts"], late["emotion_counts"]),
+            "toxicity_delta": late["avg_toxicity"] - early["avg_toxicity"],
+            "reply_ratio_delta": late["reply_ratio"] - early["reply_ratio"],
+            "post_count_delta": late["post_count"] - early["post_count"],
+            "segment_shift": f"{early['segment']}->{late['segment']}",
+        }
+
+    @_handle_db_connection
+    def user_segments(self, from_round=None, to_round=None, graph=None):
+        """
+        Segment users into coarse behavioral groups.
+        """
+        if self.__get_schema().has_table("user_mgmt"):
+            users = self.users_frame(columns=["id"])
+            user_ids = [int(user_id) for user_id in users["id"].tolist()]
+        else:
+            user_ids = []
+
+        rows = []
+        for user_id in user_ids:
+            summary = self.user_profile_summary(user_id, from_round=from_round, to_round=to_round)
+            rows.append(
+                {
+                    "agent_id": user_id,
+                    "segment": summary["segment"],
+                    "post_count": summary["post_count"],
+                    "reply_ratio": summary["reply_ratio"],
+                    "topic_diversity": len(summary["topic_counts"]),
+                    "emotion_diversity": len(summary["emotion_counts"]),
+                    "avg_toxicity": summary["avg_toxicity"],
+                }
+            )
+
+        import pandas as pd
+
+        return pd.DataFrame(rows)
+
+    @_handle_db_connection
+    def community_metrics(self, graph=None, graph_type="social", from_round=None, to_round=None):
+        """
+        Measure community structure and polarization in an interaction graph.
+        """
+        if graph is None:
+            if graph_type == "mention":
+                graph = self.mention_network(from_round=from_round, to_round=to_round)
+            elif graph_type == "social":
+                graph = self.social_network(from_round=from_round, to_round=to_round)
+            else:
+                raise ValueError("graph_type must be 'social' or 'mention' when graph is not provided.")
+
+        if graph.number_of_nodes() == 0:
+            return {
+                "graph_type": graph_type,
+                "node_count": 0,
+                "edge_count": 0,
+                "community_count": 0,
+                "communities": [],
+                "community_sizes": [],
+                "modularity": 0.0,
+                "cross_community_edge_ratio": 0.0,
+                "density": 0.0,
+                "reciprocity": 0.0,
+                "leaning_alignment_ratio": None,
+            }
+
+        undirected = graph.to_undirected()
+        if undirected.number_of_edges() > 0 and undirected.number_of_nodes() > 1:
+            communities = list(nx.algorithms.community.greedy_modularity_communities(undirected))
+            modularity = nx.algorithms.community.modularity(undirected, communities) if len(communities) > 1 else 0.0
+        else:
+            communities = [set(undirected.nodes())]
+            modularity = 0.0
+
+        community_map = {}
+        for index, community in enumerate(communities):
+            for node in community:
+                community_map[node] = index
+
+        cross_edges = 0
+        for source, target in graph.edges():
+            if community_map.get(source) != community_map.get(target):
+                cross_edges += 1
+        total_edges = graph.number_of_edges()
+        cross_ratio = (cross_edges / total_edges) if total_edges else 0.0
+
+        leaning_alignment_ratio = None
+        if self.__get_schema().has_column("user_mgmt", "leaning") and graph.number_of_edges() > 0:
+            user_frame = self.users_frame(columns=["id", "leaning"])
+            leaning_by_user = {int(row[0]): row[1] for _, row in user_frame.iterrows()}
+            aligned = 0
+            comparable = 0
+            for source, target in graph.edges():
+                source_leaning = leaning_by_user.get(source)
+                target_leaning = leaning_by_user.get(target)
+                if source_leaning is None or target_leaning is None:
+                    continue
+                comparable += 1
+                if source_leaning == target_leaning:
+                    aligned += 1
+            if comparable:
+                leaning_alignment_ratio = aligned / comparable
+
+        reciprocity = nx.reciprocity(graph) if graph.number_of_edges() else 0.0
+
+        return {
+            "graph_type": graph_type,
+            "node_count": graph.number_of_nodes(),
+            "edge_count": total_edges,
+            "community_count": len(communities),
+            "communities": [sorted(list(community)) for community in communities],
+            "community_sizes": [len(community) for community in communities],
+            "largest_community_size": max((len(community) for community in communities), default=0),
+            "modularity": modularity,
+            "cross_community_edge_ratio": cross_ratio,
+            "density": nx.density(undirected) if undirected.number_of_nodes() > 1 else 0.0,
+            "reciprocity": reciprocity if reciprocity is not None else 0.0,
+            "leaning_alignment_ratio": leaning_alignment_ratio,
+        }
+
     # Network Extraction Methods #
     @_handle_db_connection
     def ego_network_follower(self, agent_id, from_round=None, to_round=None):
@@ -2091,8 +2535,11 @@ class YDataHandler:
             :meth:`mention_network`: Get mention-based interaction network
         """
         if agent_ids is None:
-            agents = self.agents()
-            agent_ids = [a.id for a in agents.get_agents()]
+            if self.__get_schema().has_table("user_mgmt"):
+                agent_ids = [int(user_id) for user_id in self.users_frame(columns=["id"])["id"].tolist()]
+            else:
+                rows = self.__execute_query("SELECT DISTINCT user_id FROM follow ORDER BY user_id ASC")
+                agent_ids = [int(row[0]) for row in rows]
 
         networks = {}
 
@@ -2218,8 +2665,11 @@ class YDataHandler:
             :meth:`social_network`: Get follower/following network
         """
         if agent_ids is None:
-            agents = self.agents()
-            agent_ids = [a.id for a in agents.get_agents()]
+            if self.__get_schema().has_table("user_mgmt"):
+                agent_ids = [int(user_id) for user_id in self.users_frame(columns=["id"])["id"].tolist()]
+            else:
+                rows = self.__execute_query("SELECT DISTINCT user_id FROM mentions ORDER BY user_id ASC")
+                agent_ids = [int(row[0]) for row in rows]
 
         networks = {}
 
