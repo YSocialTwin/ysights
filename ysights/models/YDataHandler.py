@@ -3310,7 +3310,9 @@ class YDataHandler:
             if self.__get_schema().has_table("user_mgmt"):
                 agent_ids = list(self.users_frame(columns=["id"])["id"].tolist())
             else:
-                rows = self.__execute_query("SELECT DISTINCT user_id FROM follow ORDER BY user_id ASC")
+                rows = self.__execute_query(
+                    "SELECT DISTINCT user_id FROM follow ORDER BY user_id ASC"
+                )
                 agent_ids = [row[0] for row in rows]
 
         networks = {}
@@ -3443,7 +3445,9 @@ class YDataHandler:
             if self.__get_schema().has_table("user_mgmt"):
                 agent_ids = list(self.users_frame(columns=["id"])["id"].tolist())
             else:
-                rows = self.__execute_query("SELECT DISTINCT user_id FROM mentions ORDER BY user_id ASC")
+                rows = self.__execute_query(
+                    "SELECT DISTINCT user_id FROM mentions ORDER BY user_id ASC"
+                )
                 agent_ids = [row[0] for row in rows]
 
         networks = {}
