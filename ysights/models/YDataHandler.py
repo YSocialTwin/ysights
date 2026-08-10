@@ -290,7 +290,9 @@ class YDataHandler:
         Retrieve the time range covered by the simulation.
 
         Returns the minimum and maximum round IDs present in the database,
-        representing the temporal extent of the simulation data.
+        representing the temporal extent of the simulation data. Uses day and hour
+        fields to determine the earliest and latest rounds (not round IDs which may
+        be non-sequential UUIDs).
 
         :return: Dictionary with 'min_round' and 'max_round' keys
         :rtype: dict
@@ -305,12 +307,30 @@ class YDataHandler:
             print(f"Simulation ends at round: {time_info['max_round']}")
             print(f"Total rounds: {time_info['max_round'] - time_info['min_round'] + 1}")
         """
-        query = "SELECT MIN(id), MAX(id) FROM rounds"
-        data = self.__execute_query(query)
-        if data and data[0]:
-            return {"min_round": data[0][0], "max_round": data[0][1]}
-        else:
+        # Find the earliest round (minimum day, and minimum hour for that day)
+        query_min_day = "SELECT MIN(day) FROM rounds"
+        data = self.__execute_query(query_min_day)
+        if not data or data[0][0] is None:
             raise ValueError("No rounds found in the database.")
+        
+        min_day = data[0][0]
+        query_min_round = "SELECT id FROM rounds WHERE day = ? ORDER BY hour ASC LIMIT 1"
+        data = self.__execute_query(query_min_round, (min_day,))
+        if not data:
+            raise ValueError("No rounds found in the database.")
+        min_round = data[0][0]
+        
+        # Find the latest round (maximum day, and maximum hour for that day)
+        query_max_day = "SELECT MAX(day) FROM rounds"
+        data = self.__execute_query(query_max_day)
+        max_day = data[0][0]
+        query_max_round = "SELECT id FROM rounds WHERE day = ? ORDER BY hour DESC LIMIT 1"
+        data = self.__execute_query(query_max_round, (max_day,))
+        if not data:
+            raise ValueError("No rounds found in the database.")
+        max_round = data[0][0]
+        
+        return {"min_round": min_round, "max_round": max_round}
 
     @_handle_db_connection
     def round_to_time(self, round_id):
@@ -373,6 +393,55 @@ class YDataHandler:
             return data[0][0]
         else:
             raise ValueError(f"No round found for day {day} and hour {hour}.")
+
+    @_handle_db_connection
+    def get_rounds_in_time_range(self, start_day, start_hour, end_day, end_hour):
+        """
+        Get all round IDs within a specified time range.
+
+        Returns round IDs for all rounds that fall between the start and end times
+        (inclusive), based on day and hour fields. This is useful for filtering
+        data by temporal windows when round IDs may not be sequential.
+
+        :param start_day: Starting day (inclusive)
+        :type start_day: int
+        :param start_hour: Starting hour (inclusive)
+        :type start_hour: int
+        :param end_day: Ending day (inclusive)
+        :type end_day: int
+        :param end_hour: Ending hour (inclusive)
+        :type end_hour: int
+        :return: List of round IDs within the time range
+        :rtype: list
+
+        Example::
+
+            ydh = YDataHandler('path/to/database.db')
+
+            # Get all rounds between day 5, hour 10 and day 7, hour 15
+            round_ids = ydh.get_rounds_in_time_range(
+                start_day=5, start_hour=10,
+                end_day=7, end_hour=15
+            )
+            print(f"Found {len(round_ids)} rounds in time range")
+
+            # Use for filtering posts
+            posts_in_range = [p for p in all_posts if p.round in round_ids]
+
+        Note:
+            This method correctly handles non-sequential round IDs (e.g., UUIDs)
+            by using the day/hour fields for temporal ordering.
+        """
+        query = """
+            SELECT id FROM rounds 
+            WHERE (day > ? OR (day = ? AND hour >= ?))
+            AND (day < ? OR (day = ? AND hour <= ?))
+        """
+        data = self.__execute_query(
+            query, 
+            (start_day, start_day, start_hour, end_day, end_day, end_hour)
+        )
+        return [row[0] for row in data]
 
     # Agents and Posts methods
     @_handle_db_connection

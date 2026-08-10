@@ -190,6 +190,16 @@ fig.show()
 
 Comprehensive documentation is available at [ysights.readthedocs.io](https://ysights.readthedocs.io/)
 
+### Mathematical Documentation
+
+For detailed mathematical formulations and theoretical background of the algorithms:
+
+- **[Visibility Paradox Mathematical Formulation](docs/VISIBILITY_PARADOX.md)**: Complete mathematical description including:
+  - Local (node-level) and global (network-wide) formulations
+  - Detailed assumptions and constraints
+  - Null model construction and statistical testing methodology
+  - Implementation details with code references
+
 ### Building Documentation Locally
 
 ```bash
