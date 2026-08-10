@@ -34,6 +34,12 @@ def _create_fixture_db():
             image_id INTEGER
         );
 
+        CREATE TABLE rounds (
+            id INTEGER PRIMARY KEY,
+            day INTEGER NOT NULL,
+            hour INTEGER NOT NULL
+        );
+
         CREATE TABLE user_mgmt (
             id INTEGER PRIMARY KEY,
             username TEXT NOT NULL
@@ -90,6 +96,12 @@ def _create_fixture_db():
             interest TEXT NOT NULL
         );
 
+        CREATE TABLE post_topics (
+            id INTEGER PRIMARY KEY,
+            post_id INTEGER NOT NULL,
+            topic_id INTEGER NOT NULL
+        );
+
         CREATE TABLE post_emotions (
             id INTEGER PRIMARY KEY,
             post_id INTEGER NOT NULL,
@@ -144,6 +156,14 @@ def _create_fixture_db():
         ],
     )
     cur.executemany(
+        "INSERT INTO rounds VALUES (?, ?, ?)",
+        [
+            (1, 0, 0),
+            (3, 1, 0),
+            (5, 2, 0),
+        ],
+    )
+    cur.executemany(
         "INSERT INTO user_mgmt VALUES (?, ?)",
         [(1, "alice"), (2, "bob")],
     )
@@ -176,6 +196,10 @@ def _create_fixture_db():
     cur.executemany(
         "INSERT INTO interests VALUES (?, ?)",
         [(200, "sports"), (201, "news")],
+    )
+    cur.executemany(
+        "INSERT INTO post_topics VALUES (?, ?, ?)",
+        [(1, 10, 200), (2, 11, 200), (3, 12, 201)],
     )
     cur.executemany(
         "INSERT INTO user_interest VALUES (?, ?, ?, ?)",
@@ -415,6 +439,37 @@ class RegressionTestCase(unittest.TestCase):
         summaries = self.handler.thread_summaries()
         self.assertEqual(list(summaries.keys()), [10])
         self.assertEqual(summaries[10]["post_count"], 3)
+
+    def test_time_series_analytics(self):
+        timeline = self.handler.activity_timeline()
+        self.assertEqual(list(timeline["period"]), [1, 3, 5])
+        self.assertEqual(list(timeline["posts"]), [1, 1, 1])
+        self.assertEqual(list(timeline["replies"]), [0, 1, 1])
+        self.assertEqual(list(timeline["authors"]), [1, 1, 1])
+
+        timeline_day = self.handler.activity_timeline(granularity="day")
+        self.assertEqual(list(timeline_day["period"]), [0, 1, 2])
+        self.assertEqual(list(timeline_day["posts"]), [1, 1, 1])
+
+        bursts = self.handler.burst_windows(metric="posts", window_size=2)
+        self.assertIn("z_score", bursts.columns)
+        self.assertIn("is_burst", bursts.columns)
+        self.assertEqual(len(bursts), 3)
+
+        comparison = self.handler.compare_time_windows(
+            metric="posts", window_a=(1, 3), window_b=(5, 5)
+        )
+        self.assertEqual(comparison["delta"], -1)
+        self.assertEqual(comparison["window_a"]["value"], 2)
+        self.assertEqual(comparison["window_b"]["value"], 1)
+
+        topic_timeline = self.handler.topic_timeline(200)
+        self.assertEqual(list(topic_timeline["period"]), [1, 3])
+        self.assertEqual(list(topic_timeline["posts"]), [1, 1])
+
+        topic_timeline_day = self.handler.topic_timeline(200, granularity="day")
+        self.assertEqual(list(topic_timeline_day["period"]), [0, 1])
+        self.assertEqual(list(topic_timeline_day["posts"]), [1, 1])
 
 
 if __name__ == "__main__":

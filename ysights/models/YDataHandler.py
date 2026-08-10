@@ -683,6 +683,231 @@ class YDataHandler:
             summaries[thread_ref] = self.__thread_metrics_from_posts(thread_ref, posts)
         return summaries
 
+    def __period_clause(self, alias, round_column, granularity):
+        """
+        Build a grouping expression for round- or day-level timelines.
+        """
+        granularity = granularity.lower()
+        if granularity == "round":
+            return f"{alias}.{round_column}", ""
+
+        if granularity == "day":
+            if self.__get_schema().has_table("rounds"):
+                return "rd.day", f" JOIN rounds AS rd ON {alias}.{round_column} = rd.id"
+            return f"{alias}.{round_column}", ""
+
+        raise ValueError("granularity must be 'round' or 'day'")
+
+    def __single_metric_timeline(
+        self,
+        table_name,
+        alias,
+        round_column,
+        metric_name,
+        from_round=None,
+        to_round=None,
+        granularity="round",
+        extra_join="",
+        extra_where="",
+    ):
+        """
+        Build a simple timeline with one metric per period.
+        """
+        period_expr, period_join = self.__period_clause(alias, round_column, granularity)
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, f"{alias}.{round_column}"
+        )
+        query = (
+            f"SELECT {period_expr} AS period, COUNT(*) AS {metric_name} "
+            f"FROM {table_name} AS {alias}"
+            f"{period_join}"
+            f"{extra_join}"
+            f" WHERE 1=1{extra_where}{time_filter} "
+            f"GROUP BY period ORDER BY period ASC"
+        )
+        rows = self.__execute_query(query, time_params)
+        import pandas as pd
+
+        return pd.DataFrame(rows, columns=["period", metric_name])
+
+    def __activity_timeline_frame(self, granularity="round", from_round=None, to_round=None):
+        """
+        Build a multi-metric activity timeline for posts and interactions.
+
+        :return: DataFrame with counts for posts, replies, reactions, recommendations, mentions, and authors
+        :rtype: pandas.DataFrame
+        """
+        import pandas as pd
+
+        period_expr, period_join = self.__period_clause("p", "round", granularity)
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        post_query = (
+            f"SELECT {period_expr} AS period, "
+            "COUNT(*) AS posts, "
+            "SUM(CASE WHEN p.comment_to IS NOT NULL AND p.comment_to != -1 THEN 1 ELSE 0 END) AS replies, "
+            "COUNT(DISTINCT p.user_id) AS authors "
+            "FROM post AS p"
+            f"{period_join}"
+            f" WHERE 1=1{time_filter} "
+            "GROUP BY period ORDER BY period ASC"
+        )
+        posts_df = pd.DataFrame(
+            self.__execute_query(post_query, time_params),
+            columns=["period", "posts", "replies", "authors"],
+        )
+
+        frames = [posts_df]
+        schema = self.__get_schema()
+        if schema.has_table("reactions"):
+            frames.append(
+                self.__single_metric_timeline(
+                    "reactions",
+                    "x",
+                    "round",
+                    "reactions",
+                    from_round=from_round,
+                    to_round=to_round,
+                    granularity=granularity,
+                )
+            )
+        if schema.has_table("recommendations"):
+            frames.append(
+                self.__single_metric_timeline(
+                    "recommendations",
+                    "x",
+                    "round",
+                    "recommendations",
+                    from_round=from_round,
+                    to_round=to_round,
+                    granularity=granularity,
+                )
+            )
+        if schema.has_table("mentions"):
+            frames.append(
+                self.__single_metric_timeline(
+                    "mentions",
+                    "x",
+                    "round",
+                    "mentions",
+                    from_round=from_round,
+                    to_round=to_round,
+                    granularity=granularity,
+                )
+            )
+
+        timeline = posts_df
+        for frame in frames[1:]:
+            timeline = timeline.merge(frame, on="period", how="outer")
+
+        timeline = timeline.fillna(0).sort_values("period").reset_index(drop=True)
+        numeric_columns = [col for col in timeline.columns if col != "period"]
+        for column in numeric_columns:
+            timeline[column] = timeline[column].astype(int)
+        return timeline
+
+    @_handle_db_connection
+    def activity_timeline(self, granularity="round", from_round=None, to_round=None):
+        return self.__activity_timeline_frame(granularity=granularity, from_round=from_round, to_round=to_round)
+
+    @_handle_db_connection
+    def burst_windows(
+        self,
+        metric="posts",
+        granularity="round",
+        window_size=3,
+        z_threshold=2.0,
+        from_round=None,
+        to_round=None,
+    ):
+        """
+        Detect bursts in an activity timeline using rolling z-scores.
+        """
+        import pandas as pd
+
+        timeline = self.__activity_timeline_frame(
+            granularity=granularity, from_round=from_round, to_round=to_round
+        )
+        if timeline.empty:
+            return timeline
+        if metric not in timeline.columns:
+            raise KeyError(f"Metric '{metric}' is not available in the timeline.")
+
+        series = timeline[metric].astype(float)
+        rolling_mean = series.rolling(window=window_size, min_periods=1).mean()
+        rolling_std = series.rolling(window=window_size, min_periods=1).std(ddof=0)
+        safe_std = rolling_std.where(rolling_std != 0, float("nan"))
+        z_scores = ((series - rolling_mean) / safe_std).fillna(0.0)
+
+        result = timeline.copy()
+        result["rolling_mean"] = rolling_mean
+        result["rolling_std"] = rolling_std.fillna(0.0).astype(float)
+        result["z_score"] = z_scores
+        result["is_burst"] = result["z_score"] >= z_threshold
+        return result
+
+    @_handle_db_connection
+    def compare_time_windows(
+        self,
+        metric="posts",
+        window_a=None,
+        window_b=None,
+        granularity="round",
+    ):
+        """
+        Compare a metric across two windows.
+
+        :param window_a: Tuple of (from_round, to_round)
+        :param window_b: Tuple of (from_round, to_round)
+        """
+        if window_a is None or window_b is None:
+            raise ValueError("window_a and window_b are required.")
+
+        timeline_a = self.__activity_timeline_frame(
+            granularity=granularity, from_round=window_a[0], to_round=window_a[1]
+        )
+        timeline_b = self.__activity_timeline_frame(
+            granularity=granularity, from_round=window_b[0], to_round=window_b[1]
+        )
+        if metric not in timeline_a.columns or metric not in timeline_b.columns:
+            raise KeyError(f"Metric '{metric}' is not available in the timeline.")
+
+        value_a = int(timeline_a[metric].sum())
+        value_b = int(timeline_b[metric].sum())
+        delta = value_b - value_a
+        relative_change = (delta / value_a) if value_a else None
+
+        return {
+            "metric": metric,
+            "granularity": granularity,
+            "window_a": {"from_round": window_a[0], "to_round": window_a[1], "value": value_a},
+            "window_b": {"from_round": window_b[0], "to_round": window_b[1], "value": value_b},
+            "delta": delta,
+            "relative_change": relative_change,
+        }
+
+    @_handle_db_connection
+    def topic_timeline(self, topic_id, granularity="round", from_round=None, to_round=None):
+        """
+        Track the growth of a topic over time.
+        """
+        if not self.__get_schema().supports_feature("topics"):
+            raise ValueError("Topic analysis is not available in this dataset.")
+
+        import pandas as pd
+
+        period_expr, period_join = self.__period_clause("p", "round", granularity)
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        query = (
+            f"SELECT {period_expr} AS period, COUNT(*) AS posts "
+            "FROM post_topics AS pt "
+            "JOIN post AS p ON p.id = pt.post_id"
+            f"{period_join}"
+            f" WHERE pt.topic_id = ?{time_filter} "
+            "GROUP BY period ORDER BY period ASC"
+        )
+        rows = self.__execute_query(query, (topic_id, *time_params))
+        return pd.DataFrame(rows, columns=["period", "posts"])
+
     # Time
     @_handle_db_connection
     def time_range(self):
