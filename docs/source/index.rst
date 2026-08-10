@@ -20,9 +20,10 @@ For more information about the YSocial ecosystem, visit the `GitHub repository <
 Features
 --------
 
-* **Data Models**: Comprehensive data models for agents, posts, and simulation data
-* **Network Analysis**: Social network extraction and analysis capabilities
-* **Algorithm Library**: Profile analysis and recommendation metrics
+* **Data Models**: Comprehensive data models for agents, posts, simulation runs, and forum sessions
+* **Network Analysis**: Social, mention, thread, and conversation graph extraction
+* **Algorithm Library**: Profile similarity, topic lifecycle, moderation, reporting, and recommendation metrics
+* **Analytical Surfaces**: Time-series, user segmentation, community structure, and cross-experiment comparison
 * **Visualization Tools**: Rich visualization functions for simulation insights
 * **Sphinx Documentation**: Complete API reference with examples
 
@@ -47,6 +48,14 @@ Quick Start
     # Extract social network
     network = ydh.social_network()
     print(f"Network: {network.number_of_nodes()} nodes, {network.number_of_edges()} edges")
+
+    # Build higher-level analysis
+    report = ydh.summary_report()
+    print(f"Posts: {report['post_count']}, topics: {report['topic_count']}")
+
+    # Inspect cached analytics and performance guidance
+    print(ydh.analysis_cache_info())
+    print(ydh.recommended_indexes()["count"], "index suggestions")
 
 Installation
 ------------

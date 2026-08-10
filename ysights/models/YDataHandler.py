@@ -92,10 +92,7 @@ class YDataHandler:
         """
         Initialize the YDataHandler with database connection information.
 
-        :param db_path: Path to SQLite database file or PostgreSQL connection string.
-                       For SQLite: 'path/to/database.db'
-                       For PostgreSQL: 'postgresql://user:password@host:port/database'
-                                      or 'postgres://user:password@host:port/database'
+        :param db_path: Path to a SQLite database file or a PostgreSQL connection string.
         :type db_path: str
         :raises FileNotFoundError: If the SQLite database file does not exist when first accessed
         :raises ImportError: If PostgreSQL connection string is used but psycopg2 is not installed
