@@ -6,10 +6,8 @@ This module provides functions for analyzing topic-related dynamics in YSocial s
 These functions help understand how topics spread, how quickly they are adopted,
 and when engagement peaks occur.
 
-The module is currently under development and contains placeholder functions for:
-- Topic spread analysis
-- Adoption rate calculations
-- Peak engagement time detection
+All public helpers in this module are implemented on top of the topic lifecycle
+summaries exposed by :class:`ysights.models.YDataHandler`.
 
 Example:
     Basic usage of topic analysis functions::
@@ -20,11 +18,12 @@ Example:
         # Initialize data handler
         ydh = YDataHandler('path/to/database.db')
 
-        # Analyze topic spread (to be implemented)
-        # spread = topics.topic_spread(ydh)
+        # Analyze topic spread
+        spread = topics.topic_spread(ydh)
 
-        # Calculate adoption rates (to be implemented)
-        # rates = topics.adoption_rate(ydh)
+        # Calculate adoption rates
+        rates = topics.adoption_rate(ydh)
+        print(f"Adoption rates available for {len(rates)} topics")
 """
 
 from ysights import YDataHandler
@@ -50,8 +49,8 @@ def topic_spread(YDH: YDataHandler):
 
     :param YDH: YDataHandler instance for database operations
     :type YDH: YDataHandler
-    :return: Topic spread analysis results (to be implemented)
-    :rtype: None
+    :return: Topic lifecycle summaries keyed by topic identifier.
+    :rtype: dict
 
     Example::
 
@@ -60,11 +59,9 @@ def topic_spread(YDH: YDataHandler):
 
         ydh = YDataHandler('path/to/database.db')
 
-        # Analyze topic spread (function to be implemented)
-        # results = topic_spread(ydh)
-
-    Note:
-        This function is currently a placeholder and needs to be implemented.
+        # Analyze topic spread
+        results = topic_spread(ydh)
+        print(results)
 
     See Also:
         :func:`adoption_rate`: Calculate topic adoption rates
@@ -84,8 +81,8 @@ def adoption_rate(YDH: YDataHandler):
 
     :param YDH: YDataHandler instance for database operations
     :type YDH: YDataHandler
-    :return: Topic adoption rate metrics (to be implemented)
-    :rtype: None
+    :return: Topic adoption rates keyed by topic identifier.
+    :rtype: dict
 
     Example::
 
@@ -94,12 +91,9 @@ def adoption_rate(YDH: YDataHandler):
 
         ydh = YDataHandler('path/to/database.db')
 
-        # Calculate adoption rates (function to be implemented)
-        # rates = adoption_rate(ydh)
-        # print(f"Average adoption rate: {rates}")
-
-    Note:
-        This function is currently a placeholder and needs to be implemented.
+        # Calculate adoption rates
+        rates = adoption_rate(ydh)
+        print(f"Average adoption rate: {sum(rates.values()) / len(rates):.3f}")
 
     See Also:
         :func:`topic_spread`: Analyze topic spread patterns
@@ -122,8 +116,8 @@ def peak_engagement_time(YDH: YDataHandler):
 
     :param YDH: YDataHandler instance for database operations
     :type YDH: YDataHandler
-    :return: Peak engagement time analysis (to be implemented)
-    :rtype: None
+    :return: Peak engagement periods keyed by topic identifier.
+    :rtype: dict
 
     Example::
 
@@ -132,13 +126,10 @@ def peak_engagement_time(YDH: YDataHandler):
 
         ydh = YDataHandler('path/to/database.db')
 
-        # Find peak engagement times (function to be implemented)
-        # peaks = peak_engagement_time(ydh)
-        # for topic, peak_time in peaks.items():
-        #     print(f"Topic {topic} peaked at {peak_time}")
-
-    Note:
-        This function is currently a placeholder and needs to be implemented.
+        # Find peak engagement times
+        peaks = peak_engagement_time(ydh)
+        for topic, peak_time in peaks.items():
+            print(f"Topic {topic} peaked at {peak_time}")
 
     See Also:
         :func:`topic_spread`: Analyze topic spread patterns

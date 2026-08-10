@@ -31,8 +31,8 @@ Topic Analysis
 --------------
 
 Functions for analyzing topic dynamics and evolution.
-The topic module now exposes implemented lifecycle entry points rather than
-placeholders.
+The topic module now exposes implemented lifecycle entry points backed by
+``YDataHandler.topic_lifecycle``.
 
 .. automodule:: ysights.algorithms.topics
    :members:
