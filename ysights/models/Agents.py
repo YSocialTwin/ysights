@@ -85,7 +85,7 @@ class Agent:
         return f"Agent(id={self.id}, username={self.username}, role={self.role}, leaning={self.leaning}, age={self.age}, personality={self.personality}, recsys={self.recsys}, language={self.language}, education={self.education}, joined={self.joined}, gender={self.gender})"
 
     def __str__(self):
-        json.dumps(
+        return json.dumps(
             {
                 "id": self.id,
                 "username": self.username,

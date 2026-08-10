@@ -59,7 +59,7 @@ def topic_spread(YDH: YDataHandler):
         :func:`adoption_rate`: Calculate topic adoption rates
         :func:`peak_engagement_time`: Find peak engagement times
     """
-    pass
+    raise NotImplementedError("topic_spread is not implemented yet.")
 
 
 def adoption_rate(YDH: YDataHandler):
@@ -93,7 +93,7 @@ def adoption_rate(YDH: YDataHandler):
         :func:`topic_spread`: Analyze topic spread patterns
         :func:`peak_engagement_time`: Find peak engagement times
     """
-    pass
+    raise NotImplementedError("adoption_rate is not implemented yet.")
 
 
 def peak_engagement_time(YDH: YDataHandler):
@@ -128,4 +128,4 @@ def peak_engagement_time(YDH: YDataHandler):
         :func:`topic_spread`: Analyze topic spread patterns
         :func:`adoption_rate`: Calculate topic adoption rates
     """
-    pass
+    raise NotImplementedError("peak_engagement_time is not implemented yet.")
