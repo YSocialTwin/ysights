@@ -250,19 +250,32 @@ class Post:
         :type cursor: sqlite3.Cursor
         """
         cursor.execute(
-            "SELECT toxicity FROM post_toxicity WHERE post_id = ?", (self.id,)
+            """
+            SELECT
+                toxicity,
+                severe_toxicity,
+                identity_attack,
+                insult,
+                profanity,
+                threat,
+                sexually_explicit,
+                flirtation
+            FROM post_toxicity
+            WHERE post_id = ?
+            """,
+            (self.id,),
         )
         user_data = cursor.fetchone()
         if user_data:
             self.toxicity = {
-                "toxicity": user_data[2],
-                "severe_toxicity": user_data[3],
-                "identity_attack": user_data[4],
-                "insult": user_data[5],
-                "profanity": user_data[6],
-                "threat": user_data[7],
-                "sexual_explicit": user_data[8],
-                "flirtation": user_data[9],
+                "toxicity": user_data[0],
+                "severe_toxicity": user_data[1],
+                "identity_attack": user_data[2],
+                "insult": user_data[3],
+                "profanity": user_data[4],
+                "threat": user_data[5],
+                "sexual_explicit": user_data[6],
+                "flirtation": user_data[7],
             }
 
     def __enrich_post_reactions(self, cursor):

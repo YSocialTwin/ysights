@@ -243,6 +243,31 @@ class YDataHandler:
         cursor.execute(query, params or [])
         return cursor.fetchall()
 
+    def __build_time_filter(self, from_round=None, to_round=None, field_name="round"):
+        """
+        Build a SQL time filter clause and matching parameters.
+
+        :param from_round: Optional lower bound, inclusive.
+        :param to_round: Optional upper bound, inclusive.
+        :param field_name: SQL field or expression to compare against.
+        :return: Tuple of (clause string, parameters tuple).
+        """
+        clauses = []
+        params = []
+
+        if from_round is not None:
+            clauses.append(f"{field_name} >= ?")
+            params.append(from_round)
+
+        if to_round is not None:
+            clauses.append(f"{field_name} <= ?")
+            params.append(to_round)
+
+        if not clauses:
+            return "", ()
+
+        return " AND " + " AND ".join(clauses), tuple(params)
+
     @_handle_db_connection
     def custom_query(self, query):
         """
@@ -764,12 +789,9 @@ class YDataHandler:
             :meth:`recommendations_per_post`: Get recommendation counts per post
             :meth:`agent_posts_visibility`: Get visibility of agent's own posts
         """
-        if from_round is not None and to_round is not None:
-            query = "SELECT r.post_ids FROM recommendations as r WHERE user_id = ? AND r.round >= ? AND r.round <= ?"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT r.post_ids FROM recommendations as r WHERE user_id = ?"
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "r.round")
+        query = f"SELECT r.post_ids FROM recommendations as r WHERE user_id = ?{time_filter}"
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         recommendations = defaultdict(int)
         for row in data:
@@ -987,12 +1009,9 @@ class YDataHandler:
             :meth:`agent_hashtags`: Get hashtags used by agent
             :meth:`agent_interests`: Get interests of agent
         """
-        if from_round is not None and to_round is not None:
-            query = "SELECT post_id, type FROM reactions WHERE user_id = ? AND round >= ? AND round <= ?"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT post_id, type FROM reactions WHERE user_id = ?"
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round)
+        query = f"SELECT post_id, type FROM reactions WHERE user_id = ?{time_filter}"
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         reactions = defaultdict(list)
         for row in data:
@@ -1034,12 +1053,13 @@ class YDataHandler:
             :meth:`agent_interests`: Get interests of agent
             :meth:`agent_topics`: Get topics agent engages with
         """
-        if from_round is not None and to_round is not None:
-            query = "SELECT h.hashtag FROM post_hashtags as ph, post as p, hashtags as h WHERE p.user_id = ? AND p.id = ph.post_id AND ph.hashtag_id = h.id AND ph.round >= ? AND ph.round <= ?"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT h.hashtag FROM post_hashtags as ph, post as p, hashtags as h WHERE p.user_id = ? AND p.id = ph.post_id AND ph.hashtag_id = h.id"
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        query = (
+            "SELECT h.hashtag FROM post_hashtags as ph, post as p, hashtags as h "
+            "WHERE p.user_id = ? AND p.id = ph.post_id AND ph.hashtag_id = h.id"
+            f"{time_filter}"
+        )
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         hashtags = defaultdict(int)
         for row in data:
@@ -1086,12 +1106,13 @@ class YDataHandler:
             :meth:`agent_emotions`: Get emotional profile of agent
         """
 
-        if from_round is not None and to_round is not None:
-            query = "SELECT i.interest FROM user_interest as ui, interests as i WHERE user_id = ? AND i.iid = ui.interest_id AND ui.round >= ? AND ui.round <= ?"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT i.interest FROM user_interest as ui, interests as i WHERE user_id = ? AND i.iid = ui.interest_id"
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "ui.round_id")
+        query = (
+            "SELECT i.interest FROM user_interest as ui, interests as i "
+            "WHERE user_id = ? AND i.iid = ui.interest_id"
+            f"{time_filter}"
+        )
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         interests = defaultdict(int)
         for row in data:
@@ -1136,12 +1157,13 @@ class YDataHandler:
             :meth:`agent_toxicity`: Get toxicity profile
             :meth:`agent_interests`: Get interest profile
         """
-        if from_round is not None and to_round is not None:
-            query = "SELECT e.emotion FROM post as p, post_emotions as pe, emotions as e WHERE p.user_id = ? AND p.id = pe.post_id AND e.id = pe.emotion_id AND round >= ? AND round <= ?"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT e.emotion FROM post as p, post_emotions as pe, emotions as e WHERE p.user_id = ? AND p.id = pe.post_id AND e.id = pe.emotion_id"
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        query = (
+            "SELECT e.emotion FROM post as p, post_emotions as pe, emotions as e "
+            "WHERE p.user_id = ? AND p.id = pe.post_id AND e.id = pe.emotion_id"
+            f"{time_filter}"
+        )
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         emotion = defaultdict(int)
         for row in data:
@@ -1196,25 +1218,36 @@ class YDataHandler:
             :meth:`agent_emotions`: Get emotional profile
             :meth:`posts_by_agent`: Get full post objects with toxicity data
         """
-        if from_round is not None and to_round is not None:
-            query = "SELECT * FROM post as p, post_toxicity as pt WHERE p.user_id = ? AND p.id = pt.post_id AND round >= ? AND round <= ? order by round ASC"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT * FROM post as p, post_toxicity as pt WHERE p.user_id = ? AND p.id = pt.post_id order by round ASC"
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        query = (
+            "SELECT "
+            "pt.toxicity, "
+            "pt.severe_toxicity, "
+            "pt.identity_attack, "
+            "pt.insult, "
+            "pt.profanity, "
+            "pt.threat, "
+            "pt.sexually_explicit, "
+            "pt.flirtation "
+            "FROM post as p, post_toxicity as pt "
+            "WHERE p.user_id = ? AND p.id = pt.post_id"
+            f"{time_filter} "
+            "ORDER BY p.round ASC"
+        )
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         toxicity = []
         for row in data:
             toxicity.append(
                 {
-                    "toxicity": row[2],
-                    "severe_toxicity": row[3],
-                    "identity_attack": row[4],
-                    "insult": row[5],
-                    "profanity": row[6],
-                    "threat": row[7],
-                    "sexual_explicit": row[8],
-                    "flirtation": row[9],
+                    "toxicity": row[0],
+                    "severe_toxicity": row[1],
+                    "identity_attack": row[2],
+                    "insult": row[3],
+                    "profanity": row[4],
+                    "threat": row[5],
+                    "sexual_explicit": row[6],
+                    "flirtation": row[7],
                 }
             )
 
@@ -1263,12 +1296,12 @@ class YDataHandler:
             :meth:`ego_network_following`: Get accounts the agent follows
             :meth:`ego_network`: Get complete ego network (both followers and following)
         """
-        if from_round is not None and to_round is not None:
-            query = "SELECT user_id, follower_id, action FROM follow WHERE user_id = ? AND round >= ? AND round <= ? order by round ASC"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT user_id, follower_id, action FROM follow WHERE user_id = ? order by round ASC"
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round)
+        query = (
+            "SELECT user_id, follower_id, action FROM follow "
+            f"WHERE user_id = ?{time_filter} ORDER BY round ASC"
+        )
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         ego_network = defaultdict(list)
         for row in data:
@@ -1330,12 +1363,12 @@ class YDataHandler:
             :meth:`ego_network_follower`: Get followers of the agent
             :meth:`ego_network`: Get complete ego network (both followers and following)
         """
-        if from_round is not None and to_round is not None:
-            query = "SELECT follower_id, user_id, action FROM follow WHERE follower_id = ? AND round >= ? AND round <= ? order by round ASC"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT follower_id, user_id, action FROM follow WHERE follower_id = ? order by round ASC"
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round)
+        query = (
+            "SELECT follower_id, user_id, action FROM follow "
+            f"WHERE follower_id = ?{time_filter} ORDER BY round ASC"
+        )
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         ego_network = defaultdict(list)
         for row in data:
@@ -1513,12 +1546,13 @@ class YDataHandler:
             :meth:`mention_network`: Get complete mention network for all agents
             :meth:`ego_network`: Get follower/following network
         """
-        if from_round is not None and to_round is not None:
-            query = "SELECT m.user_id FROM post as p, mentions as m WHERE p.user_id = ? AND p.id = m.post_id AND round >= ? AND round <= ?"
-            data = self.__execute_query(query, (agent_id, from_round, to_round))
-        else:
-            query = "SELECT m.user_id FROM post as p, mentions as m WHERE p.user_id = ? AND p.id = m.post_id "
-            data = self.__execute_query(query, (agent_id,))
+        time_filter, time_params = self.__build_time_filter(from_round, to_round, "p.round")
+        query = (
+            "SELECT m.user_id FROM post as p, mentions as m "
+            "WHERE p.user_id = ? AND p.id = m.post_id"
+            f"{time_filter}"
+        )
+        data = self.__execute_query(query, (agent_id, *time_params))
 
         mentions = defaultdict(int)
         for row in data:
