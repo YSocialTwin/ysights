@@ -1,33 +1,25 @@
-import os
 import unittest
 
-from ysights.algorithms.topics import (
-    adoption_rate,
-    peak_engagement_time,
-    topic_spread,
-)
-from ysights.models.YDataHandler import YDataHandler
+from ysights.algorithms.recommenders import sentiment_diffusion_metrics
+from ysights.algorithms.topics import adoption_rate, peak_engagement_time, topic_spread
 
 
 class TopicTestCase(unittest.TestCase):
-    @staticmethod
-    def get_data_handler():
-        # Assuming the database file exists at this path
-        db_path = f"{os.sep}example_data{os.sep}ysocial_db.db"
+    def test_topic_spread_is_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            topic_spread(None)
 
-        current_path = os.getcwd().split("ysights")[0] + "ysights" + db_path
+    def test_topic_peak_engagement_time_is_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            peak_engagement_time(None)
 
-        handler = YDataHandler(current_path)
-        return handler
+    def test_topic_adoption_rate_is_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            adoption_rate(None)
 
-    def test_topic_spread(self):
-        pass
-
-    def test_topic_peak_engagement_time(self):
-        pass
-
-    def test_topic_adoption_rate(self):
-        pass
+    def test_sentiment_diffusion_metrics_is_not_implemented(self):
+        with self.assertRaises(NotImplementedError):
+            sentiment_diffusion_metrics(None)
 
 
 if __name__ == "__main__":
