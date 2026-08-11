@@ -707,12 +707,22 @@ class RegressionTestCase(unittest.TestCase):
         cache_info = self.handler.analysis_cache_info()
         self.assertEqual(cache_info["entry_count"], 0)
 
+        layers_first = self.handler.interaction_layers()
+        layers_second = self.handler.interaction_layers()
+        self.assertEqual(layers_first.keys(), layers_second.keys())
+
+        sessions_first = self.handler.forum_session_summaries()
+        sessions_second = self.handler.forum_session_summaries()
+        self.assertEqual(sessions_first, sessions_second)
+
         report_first = self.handler.summary_report()
         report_second = self.handler.summary_report()
         self.assertEqual(report_first, report_second)
 
         cache_info = self.handler.analysis_cache_info()
         self.assertGreaterEqual(cache_info["entry_count"], 1)
+        self.assertIn("interaction_layers", cache_info["keys"])
+        self.assertIn("forum_session_summaries", cache_info["keys"])
         self.assertIn("summary_report", cache_info["keys"])
 
         self.assertTrue(self.handler.clear_analysis_cache())
@@ -733,6 +743,8 @@ class RegressionTestCase(unittest.TestCase):
         benchmark = self.handler.benchmark_analytics(iterations=2)
         self.assertEqual(benchmark["iterations"], 2)
         self.assertGreater(len(benchmark["metrics"]), 0)
+        self.assertIn("interaction_layers", benchmark["metrics"])
+        self.assertIn("multiplex_metrics", benchmark["metrics"])
         for metric in benchmark["metrics"].values():
             self.assertGreaterEqual(metric["average_seconds"], 0.0)
             self.assertGreaterEqual(metric["min_seconds"], 0.0)

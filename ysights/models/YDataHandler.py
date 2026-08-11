@@ -3075,9 +3075,9 @@ class YDataHandler:
         )
         return combined.head(top_n).reset_index(drop=True)
 
-    def __forum_session_message_frame(self, session_id):
+    def __forum_session_message_frame(self, session_id=None):
         """
-        Load the messages for a forum session as a dataframe.
+        Load forum session messages as a dataframe.
         """
         import pandas as pd
 
@@ -3096,34 +3096,23 @@ class YDataHandler:
         ):
             if schema.has_column(table_name, column_name):
                 optional_columns.append(column_name)
-        query = f"SELECT {', '.join(columns + optional_columns)} FROM {table_name} WHERE session_id = ? ORDER BY id ASC"
-        rows = self.__execute_query(query, (session_id,))
+        query = f"SELECT {', '.join(columns + optional_columns)} FROM {table_name}"
+        params = ()
+        if session_id is not None:
+            query += " WHERE session_id = ?"
+            params = (session_id,)
+        query += " ORDER BY session_id ASC, id ASC"
+        rows = self.__execute_query(query, params)
         return pd.DataFrame(
             rows, columns=["id", "session_id", text_column, *optional_columns]
         )
 
-    @_handle_db_connection
-    def forum_session_summary(self, session_id):
+    def __forum_session_summary_from_data(self, session_id, session_row, messages):
         """
-        Summarize a forum conversation session.
+        Build a forum-session summary from already loaded session and message data.
         """
-        cached = self.__analysis_cache_get("forum_session_summary", session_id)
-        if cached is not None:
-            return cached
-
-        sessions_table = self.__get_schema().resolve_table("forum_sessions")
-        session_rows, session_columns = self.__execute_query_with_columns(
-            f"SELECT * FROM {sessions_table} WHERE id = ?", (session_id,)
-        )
-        if not session_rows:
-            raise ValueError(
-                f"Forum session ID {session_id} does not exist in the database."
-            )
-
-        session_row = dict(zip(session_columns, session_rows[0]))
-        messages = self.__forum_session_message_frame(session_id)
         if messages.empty:
-            result = {
+            return {
                 "session_id": session_id,
                 "message_count": 0,
                 "participant_count": 0,
@@ -3134,13 +3123,9 @@ class YDataHandler:
                 "target_user_id": session_row.get("target_user_id"),
                 "last_message_preview": session_row.get("last_message_preview"),
             }
-            return self.__analysis_cache_set(
-                result,
-                "forum_session_summary",
-                session_id,
-            )
 
         schema = self.__get_schema()
+        sessions_table = schema.resolve_table("forum_sessions")
         participant_count = 0
         if "user_id" in messages.columns:
             participant_count = int(messages["user_id"].nunique())
@@ -3166,9 +3151,7 @@ class YDataHandler:
         if "round" in messages.columns and not messages["round"].isna().all():
             session_span = int(messages["round"].max() - messages["round"].min())
         elif "created_at" in messages.columns:
-            session_span = (
-                f"{messages['created_at'].min()}..{messages['created_at'].max()}"
-            )
+            session_span = f"{messages['created_at'].min()}..{messages['created_at'].max()}"
         else:
             session_span = None
 
@@ -3182,7 +3165,7 @@ class YDataHandler:
             role_counts = {}
             turn_balance = 1.0 if len(messages) <= 1 else 0.5
 
-        result = {
+        return {
             "session_id": session_id,
             "message_count": int(len(messages)),
             "participant_count": participant_count,
@@ -3194,6 +3177,28 @@ class YDataHandler:
             "target_user_id": session_row.get("target_user_id"),
             "last_message_preview": session_row.get("last_message_preview"),
         }
+
+    @_handle_db_connection
+    def forum_session_summary(self, session_id):
+        """
+        Summarize a forum conversation session.
+        """
+        cached = self.__analysis_cache_get("forum_session_summary", session_id)
+        if cached is not None:
+            return cached
+
+        sessions_table = self.__get_schema().resolve_table("forum_sessions")
+        session_rows, session_columns = self.__execute_query_with_columns(
+            f"SELECT * FROM {sessions_table} WHERE id = ?", (session_id,)
+        )
+        if not session_rows:
+            raise ValueError(
+                f"Forum session ID {session_id} does not exist in the database."
+            )
+
+        session_row = dict(zip(session_columns, session_rows[0]))
+        messages = self.__forum_session_message_frame(session_id)
+        result = self.__forum_session_summary_from_data(session_id, session_row, messages)
         return self.__analysis_cache_set(result, "forum_session_summary", session_id)
 
     @_handle_db_connection
@@ -3206,13 +3211,24 @@ class YDataHandler:
             return cached
 
         sessions_table = self.__get_schema().resolve_table("forum_sessions")
-        sessions = self.__execute_query(
-            f"SELECT id FROM {sessions_table} ORDER BY id ASC"
+        sessions_rows, session_columns = self.__execute_query_with_columns(
+            f"SELECT * FROM {sessions_table} ORDER BY id ASC"
         )
+        sessions = [dict(zip(session_columns, row)) for row in sessions_rows]
+        messages = self.__forum_session_message_frame()
+        grouped_messages = {}
+        if not messages.empty and "session_id" in messages.columns:
+            for session_id, frame in messages.groupby("session_id", sort=True):
+                grouped_messages[session_id] = frame
         summaries = {}
-        for row in sessions:
-            session_id = row[0]
-            summaries[session_id] = self.forum_session_summary(session_id)
+        for session_row in sessions:
+            session_id = session_row["id"]
+            session_messages = grouped_messages.get(
+                session_id, messages.iloc[0:0].copy() if not messages.empty else messages
+            )
+            summaries[session_id] = self.__forum_session_summary_from_data(
+                session_id, session_row, session_messages
+            )
         return self.__analysis_cache_set(summaries, "forum_session_summaries")
 
     @_handle_db_connection
@@ -3386,6 +3402,10 @@ class YDataHandler:
 
         if self.__get_schema().has_table("forum_chat_sessions"):
             targets.append(("forum_session_summaries", self.forum_session_summaries))
+
+        if self.__get_schema().has_table("follow") or self.__get_schema().has_table("mentions") or self.__get_schema().has_table("reactions") or self.__get_schema().has_table("recommendations"):
+            targets.append(("interaction_layers", self.interaction_layers))
+            targets.append(("multiplex_metrics", self.multiplex_metrics))
 
         if self.__get_schema().supports_feature("topics"):
             topic_rows = self.__execute_query(
@@ -3785,7 +3805,7 @@ class YDataHandler:
             "ORDER BY p.round ASC, p.id ASC"
         )
         rows = self.__execute_query(query, time_params)
-        author_by_post = {row[0]: row[1] for row in rows}
+        author_by_post = self.__post_author_map(from_round=from_round, to_round=to_round)
         allowed_agents = set(agent_ids) if agent_ids is not None else None
 
         edges = defaultdict(int)
@@ -3824,7 +3844,7 @@ class YDataHandler:
             "ORDER BY r.round ASC, r.id ASC"
         )
         rows = self.__execute_query(query, time_params)
-        post_authors = dict(self.__execute_query("SELECT id, user_id FROM post"))
+        post_authors = self.__post_author_map()
         allowed_agents = set(agent_ids) if agent_ids is not None else None
 
         edges = defaultdict(int)
@@ -3861,7 +3881,7 @@ class YDataHandler:
             "ORDER BY r.round ASC, r.id ASC"
         )
         rows = self.__execute_query(query, time_params)
-        post_authors = dict(self.__execute_query("SELECT id, user_id FROM post"))
+        post_authors = self.__post_author_map()
         allowed_agents = set(agent_ids) if agent_ids is not None else None
 
         edges = defaultdict(int)
@@ -3887,6 +3907,41 @@ class YDataHandler:
         for (source, target), weight in edges.items():
             graph.add_edge(source, target, weight=weight)
         return graph
+
+    def __post_author_map(self, from_round=None, to_round=None, round_filter_alias="p"):
+        """
+        Load a post-to-author lookup, optionally filtered by round.
+        """
+        cache_key = (
+            "post_author_map",
+            from_round,
+            to_round,
+            round_filter_alias,
+        )
+        cached = self.__analysis_cache_get(*cache_key)
+        if cached is not None:
+            return cached
+
+        if from_round is None and to_round is None:
+            rows = self.__execute_query("SELECT id, user_id FROM post")
+        else:
+            time_filter, time_params = self.__build_time_filter(
+                from_round, to_round, f"{round_filter_alias}.round"
+            )
+            rows = self.__execute_query(
+                f"SELECT {round_filter_alias}.id, {round_filter_alias}.user_id FROM post AS {round_filter_alias}"
+                f"{time_filter}",
+                time_params,
+            )
+
+        authors = {
+            row[0]: row[1]
+            for row in rows
+        }
+        return self.__analysis_cache_set(
+            authors,
+            *cache_key,
+        )
 
     def __layer_summary(self, graph):
         """
@@ -4044,6 +4099,15 @@ class YDataHandler:
         - ``reaction`` for reaction-to-author interactions
         - ``recommendation`` for recommendation exposure interactions
         """
+        cached = self.__analysis_cache_get(
+            "interaction_layers",
+            from_round=from_round,
+            to_round=to_round,
+            agent_ids=tuple(agent_ids) if agent_ids is not None else None,
+        )
+        if cached is not None:
+            return cached
+
         schema = self.__get_schema()
         layers = {}
 
@@ -4068,7 +4132,13 @@ class YDataHandler:
                 from_round=from_round, to_round=to_round, agent_ids=agent_ids
             )
 
-        return layers
+        return self.__analysis_cache_set(
+            layers,
+            "interaction_layers",
+            from_round=from_round,
+            to_round=to_round,
+            agent_ids=tuple(agent_ids) if agent_ids is not None else None,
+        )
 
     @_handle_db_connection
     def multiplex_metrics(self, from_round=None, to_round=None, agent_ids=None):

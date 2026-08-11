@@ -33,10 +33,10 @@ ordered by implementation priority.
 
 ## 5. Harden performance for larger runs
 
-- Add query batching for repeated analytics.
-- Add lazy loading for expensive derived objects.
-- Expand graph-construction optimizations.
-- Keep benchmark and cache coverage in sync with new code paths.
+- [x] Add query batching for repeated analytics.
+- [x] Add lazy loading for expensive derived objects.
+- [x] Expand graph-construction optimizations.
+- [x] Keep benchmark and cache coverage in sync with new code paths.
 
 ## 6. Finish documentation alignment
 
