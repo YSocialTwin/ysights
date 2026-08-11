@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from collections import defaultdict, namedtuple
+from collections import Counter, defaultdict, namedtuple
 from functools import wraps
 from statistics import median
 from urllib.parse import urlparse
@@ -1865,6 +1865,297 @@ class YDataHandler:
                     post_recs[p] += 1
 
         return post_recs, user_to_posts_read
+
+    @_handle_db_connection
+    def recommendation_exposure_summary(self, from_round=None, to_round=None):
+        """
+        Summarize recommendation exposure, conversion, and feedback-loop signals.
+
+        The summary counts how many recommendation exposures occurred, how often
+        those exposures led to reactions, replies, or mentions, and how strongly
+        recommendation traffic concentrates on a small set of posts.
+        """
+        import pandas as pd
+
+        cached = self.__analysis_cache_get(
+            "recommendation_exposure_summary",
+            from_round=from_round,
+            to_round=to_round,
+        )
+        if cached is not None:
+            return cached
+
+        if not self.__get_schema().has_table("recommendations"):
+            empty = {
+                "available": False,
+                "exposure_count": 0,
+                "unique_recipients": 0,
+                "unique_posts": 0,
+                "unique_authors": 0,
+                "exposure_by_post": {},
+                "exposure_by_recipient": {},
+                "conversion_counts": {
+                    "reaction": 0,
+                    "reply": 0,
+                    "mention": 0,
+                    "any": 0,
+                },
+                "conversion_rates": {
+                    "reaction": 0.0,
+                    "reply": 0.0,
+                    "mention": 0.0,
+                    "any": 0.0,
+                },
+                "feedback_loop": {
+                    "repeat_pair_exposures": 0,
+                    "repeat_pair_rate": 0.0,
+                    "top_post_share": 0.0,
+                    "top_decile_share": 0.0,
+                    "exposure_concentration": 0.0,
+                },
+                "timeline": pd.DataFrame(
+                    columns=[
+                        "round",
+                        "exposure_count",
+                        "reaction_conversions",
+                        "reply_conversions",
+                        "mention_conversions",
+                        "any_conversion",
+                    ]
+                ),
+            }
+            return self.__analysis_cache_set(
+                empty,
+                "recommendation_exposure_summary",
+                from_round=from_round,
+                to_round=to_round,
+            )
+
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "r.round"
+        )
+        recommendation_rows = self.__execute_query(
+            (
+                "SELECT r.user_id, r.post_ids, r.round "
+                "FROM recommendations AS r"
+                f" WHERE 1=1{time_filter} "
+                "ORDER BY r.round ASC, r.id ASC"
+            ),
+            time_params,
+        )
+        if not recommendation_rows:
+            return self.__analysis_cache_set(
+                {
+                    "available": True,
+                    "exposure_count": 0,
+                    "unique_recipients": 0,
+                    "unique_posts": 0,
+                    "unique_authors": 0,
+                    "exposure_by_post": {},
+                    "exposure_by_recipient": {},
+                    "conversion_counts": {
+                        "reaction": 0,
+                        "reply": 0,
+                        "mention": 0,
+                        "any": 0,
+                    },
+                    "conversion_rates": {
+                        "reaction": 0.0,
+                        "reply": 0.0,
+                        "mention": 0.0,
+                        "any": 0.0,
+                    },
+                    "feedback_loop": {
+                        "repeat_pair_exposures": 0,
+                        "repeat_pair_rate": 0.0,
+                        "top_post_share": 0.0,
+                        "top_decile_share": 0.0,
+                        "exposure_concentration": 0.0,
+                    },
+                    "timeline": pd.DataFrame(
+                        columns=[
+                            "round",
+                            "exposure_count",
+                            "reaction_conversions",
+                            "reply_conversions",
+                            "mention_conversions",
+                            "any_conversion",
+                        ]
+                    ),
+                },
+                "recommendation_exposure_summary",
+                from_round=from_round,
+                to_round=to_round,
+            )
+
+        post_rows = self.__execute_query("SELECT id, user_id FROM post")
+        post_author_by_key = {str(post_id): user_id for post_id, user_id in post_rows}
+
+        reaction_rows = self.__execute_query(
+            "SELECT user_id, post_id, round FROM reactions"
+            if self.__get_schema().has_table("reactions")
+            else "SELECT NULL, NULL, NULL WHERE 1 = 0"
+        )
+        reply_rows = self.__execute_query(
+            "SELECT user_id, comment_to, round FROM post "
+            "WHERE comment_to IS NOT NULL AND comment_to != -1"
+        )
+        mention_rows = self.__execute_query(
+            "SELECT p.user_id, m.user_id, p.round "
+            "FROM post AS p, mentions AS m "
+            "WHERE p.id = m.post_id"
+            if self.__get_schema().has_table("mentions")
+            else "SELECT NULL, NULL, NULL WHERE 1 = 0"
+        )
+
+        reaction_index = defaultdict(list)
+        for user_id, post_id, round_id in reaction_rows:
+            reaction_index[(user_id, str(post_id))].append(round_id)
+
+        reply_index = defaultdict(list)
+        for user_id, comment_to, round_id in reply_rows:
+            reply_index[(user_id, str(comment_to))].append(round_id)
+
+        mention_index = defaultdict(list)
+        for user_id, mentioned_user_id, round_id in mention_rows:
+            mention_index[(user_id, str(mentioned_user_id))].append(round_id)
+
+        exposure_by_post = Counter()
+        exposure_by_recipient = Counter()
+        exposure_by_pair = Counter()
+        timeline_rows = []
+        conversion_counts = Counter()
+
+        for user_id, post_ids, exposure_round in recommendation_rows:
+            if not post_ids:
+                continue
+            for post_id in str(post_ids).split("|"):
+                post_key = str(post_id).strip()
+                if not post_key or post_key not in post_author_by_key:
+                    continue
+                author_id = post_author_by_key[post_key]
+                exposure_by_post[post_key] += 1
+                exposure_by_recipient[str(user_id)] += 1
+                exposure_by_pair[(str(user_id), post_key)] += 1
+
+                reaction_match = any(
+                    action_round >= exposure_round
+                    for action_round in reaction_index.get((user_id, post_key), [])
+                )
+                reply_match = any(
+                    action_round >= exposure_round
+                    for action_round in reply_index.get((user_id, post_key), [])
+                )
+                mention_match = any(
+                    action_round >= exposure_round
+                    for action_round in mention_index.get((user_id, str(author_id)), [])
+                )
+
+                if reaction_match:
+                    conversion_counts["reaction"] += 1
+                if reply_match:
+                    conversion_counts["reply"] += 1
+                if mention_match:
+                    conversion_counts["mention"] += 1
+                if reaction_match or reply_match or mention_match:
+                    conversion_counts["any"] += 1
+
+                timeline_rows.append(
+                    {
+                        "round": exposure_round,
+                        "exposure_count": 1,
+                        "reaction_conversions": int(reaction_match),
+                        "reply_conversions": int(reply_match),
+                        "mention_conversions": int(mention_match),
+                        "any_conversion": int(
+                            reaction_match or reply_match or mention_match
+                        ),
+                    }
+                )
+
+        timeline = (
+            pd.DataFrame(timeline_rows)
+            .groupby("round", as_index=False)
+            .sum(numeric_only=True)
+            if timeline_rows
+            else pd.DataFrame(
+                columns=[
+                    "round",
+                    "exposure_count",
+                    "reaction_conversions",
+                    "reply_conversions",
+                    "mention_conversions",
+                    "any_conversion",
+                ]
+            )
+        )
+
+        exposure_count = int(sum(exposure_by_post.values()))
+        unique_posts = int(len(exposure_by_post))
+        unique_recipients = int(len(exposure_by_recipient))
+        unique_authors = int(len({author for author in post_author_by_key.values()}))
+        repeat_pair_exposures = int(
+            sum(max(count - 1, 0) for count in exposure_by_pair.values())
+        )
+        post_counts = list(exposure_by_post.values())
+        total_exposures = float(exposure_count)
+        top_post_share = (
+            max(post_counts) / total_exposures if post_counts and total_exposures else 0.0
+        )
+        if post_counts:
+            top_n = max(1, int(len(post_counts) * 0.1))
+            top_decile_share = (
+                sum(sorted(post_counts, reverse=True)[:top_n]) / total_exposures
+                if total_exposures
+                else 0.0
+            )
+            exposure_concentration = sum(
+                (count / total_exposures) ** 2 for count in post_counts
+            )
+        else:
+            top_decile_share = 0.0
+            exposure_concentration = 0.0
+
+        conversion_rates = {
+            key: (value / exposure_count) if exposure_count else 0.0
+            for key, value in conversion_counts.items()
+        }
+        for key in ("reaction", "reply", "mention", "any"):
+            conversion_counts.setdefault(key, 0)
+            conversion_rates.setdefault(key, 0.0)
+
+        result = {
+            "available": True,
+            "exposure_count": exposure_count,
+            "unique_recipients": unique_recipients,
+            "unique_posts": unique_posts,
+            "unique_authors": unique_authors,
+            "exposure_by_post": dict(exposure_by_post),
+            "exposure_by_recipient": dict(exposure_by_recipient),
+            "conversion_counts": {
+                key: int(conversion_counts.get(key, 0))
+                for key in ("reaction", "reply", "mention", "any")
+            },
+            "conversion_rates": conversion_rates,
+            "feedback_loop": {
+                "repeat_pair_exposures": repeat_pair_exposures,
+                "repeat_pair_rate": (
+                    repeat_pair_exposures / exposure_count if exposure_count else 0.0
+                ),
+                "top_post_share": top_post_share,
+                "top_decile_share": top_decile_share,
+                "exposure_concentration": exposure_concentration,
+            },
+            "timeline": timeline.sort_values("round").reset_index(drop=True),
+        }
+        return self.__analysis_cache_set(
+            result,
+            "recommendation_exposure_summary",
+            from_round=from_round,
+            to_round=to_round,
+        )
+
+    recommendation_feedback_summary = recommendation_exposure_summary
 
     # Agent profiles
     @_handle_db_connection

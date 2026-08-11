@@ -422,6 +422,25 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(list(diffusion["timeline"]["round"]), [1, 5])
         self.assertEqual(list(diffusion["timeline"]["recommended_exposures"]), [2, 1])
 
+    def test_recommendation_exposure_summary_returns_summary(self):
+        summary = self.handler.recommendation_exposure_summary()
+
+        self.assertTrue(summary["available"])
+        self.assertEqual(summary["exposure_count"], 3)
+        self.assertEqual(summary["unique_posts"], 3)
+        self.assertEqual(summary["unique_recipients"], 1)
+        self.assertEqual(summary["unique_authors"], 2)
+        self.assertEqual(summary["conversion_counts"], {
+            "reaction": 2,
+            "reply": 1,
+            "mention": 0,
+            "any": 2,
+        })
+        self.assertAlmostEqual(summary["conversion_rates"]["reaction"], 2 / 3)
+        self.assertAlmostEqual(summary["feedback_loop"]["repeat_pair_rate"], 0.0)
+        self.assertEqual(list(summary["timeline"]["round"]), [1, 5])
+        self.assertEqual(list(summary["timeline"]["exposure_count"]), [2, 1])
+
     def test_placeholder_public_apis_raise(self):
         spread = topic_spread(self.handler)
         self.assertIn(200, spread)

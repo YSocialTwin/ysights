@@ -11,11 +11,11 @@ ordered by implementation priority.
 
 ## 2. Add exposure and feedback-loop analytics
 
-- Model recommendation exposure as a first-class analytic.
-- Add exposure-to-action conversion metrics.
-- Add recommendation acceptance metrics.
-- Add reply and mention conversion metrics.
-- Add feedback-loop metrics for reinforcement and recirculation.
+- [x] Model recommendation exposure as a first-class analytic.
+- [x] Add exposure-to-action conversion metrics.
+- [x] Add recommendation acceptance metrics.
+- [x] Add reply and mention conversion metrics.
+- [x] Add feedback-loop metrics for reinforcement and recirculation.
 
 ## 3. Expand semantic content enrichment
 
