@@ -462,6 +462,41 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(list(summaries.keys()), [10])
         self.assertEqual(summaries[10]["post_count"], 3)
 
+    def test_multiplex_interaction_layers_and_metrics(self):
+        layers = self.handler.interaction_layers()
+        self.assertEqual(
+            list(layers.keys()),
+            ["follow", "mention", "reply", "reaction", "recommendation"],
+        )
+
+        self.assertEqual(layers["follow"].number_of_edges(), 1)
+        self.assertEqual(layers["mention"].number_of_edges(), 2)
+        self.assertEqual(layers["reply"].number_of_edges(), 2)
+        self.assertEqual(layers["reaction"].number_of_edges(), 1)
+        self.assertEqual(layers["recommendation"].number_of_edges(), 2)
+
+        multiplex = self.handler.multiplex_metrics()
+        self.assertEqual(multiplex["layer_count"], 5)
+        self.assertEqual(
+            multiplex["available_layers"],
+            ["follow", "mention", "reply", "reaction", "recommendation"],
+        )
+        self.assertEqual(multiplex["layer_metrics"]["follow"]["edge_count"], 1)
+        self.assertEqual(multiplex["layer_metrics"]["mention"]["edge_count"], 2)
+        self.assertEqual(multiplex["layer_metrics"]["reply"]["edge_count"], 2)
+        self.assertEqual(multiplex["layer_metrics"]["reaction"]["edge_count"], 1)
+        self.assertEqual(
+            multiplex["layer_metrics"]["recommendation"]["edge_count"], 2
+        )
+        self.assertEqual(
+            multiplex["pairwise_overlap"]["reply|reaction"]["shared_edge_count"], 1
+        )
+        self.assertEqual(
+            multiplex["pairwise_overlap"]["reply|recommendation"]["shared_edge_count"],
+            1,
+        )
+        self.assertGreaterEqual(multiplex["combined"]["edge_count"], 5)
+
     def test_time_series_analytics(self):
         timeline = self.handler.activity_timeline()
         self.assertEqual(list(timeline["period"]), [1, 3, 5])

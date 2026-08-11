@@ -3306,24 +3306,280 @@ class YDataHandler:
             :meth:`ego_network`: Get ego network for single agent
             :meth:`mention_network`: Get mention-based interaction network
         """
-        if agent_ids is None:
-            if self.__get_schema().has_table("user_mgmt"):
-                agent_ids = list(self.users_frame(columns=["id"])["id"].tolist())
+        return self.__social_network_graph(
+            from_round=from_round, to_round=to_round, agent_ids=agent_ids
+        )
+
+    def __social_network_graph(self, from_round=None, to_round=None, agent_ids=None):
+        """
+        Internal helper that builds the social/follow network without managing
+        the database connection lifecycle.
+        """
+        schema = self.__get_schema()
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "f.round"
+        )
+        query = (
+            "SELECT f.user_id, f.follower_id, f.action "
+            "FROM follow AS f"
+            f" WHERE 1=1{time_filter} "
+            "ORDER BY f.round ASC, f.id ASC"
+        )
+        rows = self.__execute_query(query, time_params)
+        allowed_agents = set(agent_ids) if agent_ids is not None else None
+        if allowed_agents is None:
+            if schema.has_table("user_mgmt"):
+                allowed_agents = {
+                    row[0] for row in self.__execute_query("SELECT id FROM user_mgmt")
+                }
             else:
-                rows = self.__execute_query(
-                    "SELECT DISTINCT user_id FROM follow ORDER BY user_id ASC"
-                )
-                agent_ids = [row[0] for row in rows]
+                allowed_agents = set()
 
-        networks = {}
+        actions = defaultdict(list)
+        for user_id, follower_id, action in rows:
+            if allowed_agents and (
+                user_id not in allowed_agents or follower_id not in allowed_agents
+            ):
+                continue
+            actions[(user_id, follower_id)].append(action)
 
-        for agent in agent_ids:
-            networks[agent] = self.ego_network(agent, from_round, to_round)
+        graph = nx.DiGraph()
+        for (source, target), history in actions.items():
+            if len(history) % 2 == 1:
+                graph.add_edge(source, target)
+        return graph
 
-        # merge the networks
-        merged_network = nx.compose_all(networks.values())
+    def __reply_network(self, from_round=None, to_round=None, agent_ids=None):
+        """
+        Build a directed user-to-user reply network from reply chains.
+        """
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
+        query = (
+            "SELECT p.id, p.user_id, p.comment_to, p.round "
+            "FROM post AS p"
+            f" WHERE 1=1{time_filter} "
+            "ORDER BY p.round ASC, p.id ASC"
+        )
+        rows = self.__execute_query(query, time_params)
+        author_by_post = {row[0]: row[1] for row in rows}
+        allowed_agents = set(agent_ids) if agent_ids is not None else None
 
-        return merged_network
+        edges = defaultdict(int)
+        for _post_id, user_id, comment_to, _round in rows:
+            if comment_to in (None, -1):
+                continue
+            parent_author = author_by_post.get(comment_to)
+            if parent_author is None:
+                continue
+            if allowed_agents is not None and (
+                user_id not in allowed_agents or parent_author not in allowed_agents
+            ):
+                continue
+            edges[(user_id, parent_author)] += 1
+
+        graph = nx.DiGraph()
+        for (source, target), weight in edges.items():
+            graph.add_edge(source, target, weight=weight)
+        return graph
+
+    def __reaction_network(self, from_round=None, to_round=None, agent_ids=None):
+        """
+        Build a directed user-to-user reaction network from reaction events.
+        """
+        schema = self.__get_schema()
+        if not schema.has_table("reactions") or not schema.has_table("post"):
+            return nx.DiGraph()
+
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "r.round"
+        )
+        query = (
+            "SELECT r.user_id, r.post_id "
+            "FROM reactions AS r"
+            f" WHERE 1=1{time_filter} "
+            "ORDER BY r.round ASC, r.id ASC"
+        )
+        rows = self.__execute_query(query, time_params)
+        post_authors = dict(self.__execute_query("SELECT id, user_id FROM post"))
+        allowed_agents = set(agent_ids) if agent_ids is not None else None
+
+        edges = defaultdict(int)
+        for user_id, post_id in rows:
+            target = post_authors.get(post_id)
+            if target is None:
+                continue
+            if allowed_agents is not None and (
+                user_id not in allowed_agents or target not in allowed_agents
+            ):
+                continue
+            edges[(user_id, target)] += 1
+
+        graph = nx.DiGraph()
+        for (source, target), weight in edges.items():
+            graph.add_edge(source, target, weight=weight)
+        return graph
+
+    def __recommendation_network(self, from_round=None, to_round=None, agent_ids=None):
+        """
+        Build a directed user-to-user recommendation exposure network.
+        """
+        schema = self.__get_schema()
+        if not schema.has_table("recommendations") or not schema.has_table("post"):
+            return nx.DiGraph()
+
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "r.round"
+        )
+        query = (
+            "SELECT r.user_id, r.post_ids "
+            "FROM recommendations AS r"
+            f" WHERE 1=1{time_filter} "
+            "ORDER BY r.round ASC, r.id ASC"
+        )
+        rows = self.__execute_query(query, time_params)
+        post_authors = dict(self.__execute_query("SELECT id, user_id FROM post"))
+        allowed_agents = set(agent_ids) if agent_ids is not None else None
+
+        edges = defaultdict(int)
+        for user_id, post_ids in rows:
+            if not post_ids:
+                continue
+            for post_id in str(post_ids).split("|"):
+                post_id = post_id.strip()
+                if not post_id:
+                    continue
+                target = post_authors.get(post_id)
+                if target is None and post_id.isdigit():
+                    target = post_authors.get(int(post_id))
+                if target is None:
+                    continue
+                if allowed_agents is not None and (
+                    user_id not in allowed_agents or target not in allowed_agents
+                ):
+                    continue
+                edges[(user_id, target)] += 1
+
+        graph = nx.DiGraph()
+        for (source, target), weight in edges.items():
+            graph.add_edge(source, target, weight=weight)
+        return graph
+
+    def __layer_summary(self, graph):
+        """
+        Summarize a directed graph with a compact metric bundle.
+        """
+        node_count = graph.number_of_nodes()
+        edge_count = graph.number_of_edges()
+        return {
+            "node_count": node_count,
+            "edge_count": edge_count,
+            "density": nx.density(graph) if node_count > 1 else 0.0,
+            "reciprocity": nx.reciprocity(graph) if edge_count else 0.0,
+            "weight_sum": sum(
+                data.get("weight", 1) for _, _, data in graph.edges(data=True)
+            ),
+        }
+
+    @_handle_db_connection
+    def interaction_layers(self, from_round=None, to_round=None, agent_ids=None):
+        """
+        Return the available user interaction graphs for the current dataset.
+
+        The returned mapping can include:
+        - ``follow`` for the social/follow graph
+        - ``mention`` for mention interactions
+        - ``reply`` for reply-to-author interactions
+        - ``reaction`` for reaction-to-author interactions
+        - ``recommendation`` for recommendation exposure interactions
+        """
+        schema = self.__get_schema()
+        layers = {}
+
+        if schema.has_table("follow"):
+            layers["follow"] = self.__social_network_graph(
+                from_round=from_round, to_round=to_round, agent_ids=agent_ids
+            )
+        if schema.has_table("mentions"):
+            layers["mention"] = self.__mention_network_graph(
+                from_round=from_round, to_round=to_round, agent_ids=agent_ids
+            )
+        if schema.has_table("post"):
+            layers["reply"] = self.__reply_network(
+                from_round=from_round, to_round=to_round, agent_ids=agent_ids
+            )
+        if schema.has_table("reactions"):
+            layers["reaction"] = self.__reaction_network(
+                from_round=from_round, to_round=to_round, agent_ids=agent_ids
+            )
+        if schema.has_table("recommendations"):
+            layers["recommendation"] = self.__recommendation_network(
+                from_round=from_round, to_round=to_round, agent_ids=agent_ids
+            )
+
+        return layers
+
+    @_handle_db_connection
+    def multiplex_metrics(self, from_round=None, to_round=None, agent_ids=None):
+        """
+        Summarize the multiplex interaction layers and their overlaps.
+        """
+        cached = self.__analysis_cache_get(
+            "multiplex_metrics",
+            from_round=from_round,
+            to_round=to_round,
+            agent_ids=tuple(agent_ids) if agent_ids is not None else None,
+        )
+        if cached is not None:
+            return cached
+
+        layers = self.interaction_layers(
+            from_round=from_round, to_round=to_round, agent_ids=agent_ids
+        )
+        layer_metrics = {
+            name: self.__layer_summary(graph) for name, graph in layers.items()
+        }
+
+        overlap = {}
+        layer_names = list(layers.keys())
+        for index, left_name in enumerate(layer_names):
+            left_edges = set(layers[left_name].edges())
+            left_nodes = set(layers[left_name].nodes())
+            for right_name in layer_names[index + 1 :]:
+                right_edges = set(layers[right_name].edges())
+                right_nodes = set(layers[right_name].nodes())
+                shared_edges = left_edges & right_edges
+                union_edges = left_edges | right_edges
+                shared_nodes = left_nodes & right_nodes
+                union_nodes = left_nodes | right_nodes
+                key = f"{left_name}|{right_name}"
+                overlap[key] = {
+                    "shared_edge_count": len(shared_edges),
+                    "edge_jaccard": (
+                        len(shared_edges) / len(union_edges) if union_edges else 0.0
+                    ),
+                    "shared_node_count": len(shared_nodes),
+                    "node_jaccard": (
+                        len(shared_nodes) / len(union_nodes) if union_nodes else 0.0
+                    ),
+                }
+
+        combined = nx.compose_all(list(layers.values())) if layers else nx.DiGraph()
+        result = {
+            "layer_count": len(layers),
+            "available_layers": list(layers.keys()),
+            "layer_metrics": layer_metrics,
+            "pairwise_overlap": overlap,
+            "combined": self.__layer_summary(combined),
+        }
+        return self.__analysis_cache_set(
+            result,
+            "multiplex_metrics",
+            from_round=from_round,
+            to_round=to_round,
+            agent_ids=tuple(agent_ids) if agent_ids is not None else None,
+        )
 
     @_handle_db_connection
     def mention_ego_network(self, agent_id, from_round=None, to_round=None):
@@ -3441,21 +3697,41 @@ class YDataHandler:
             :meth:`mention_ego_network`: Get mention network for single agent
             :meth:`social_network`: Get follower/following network
         """
-        if agent_ids is None:
-            if self.__get_schema().has_table("user_mgmt"):
-                agent_ids = list(self.users_frame(columns=["id"])["id"].tolist())
-            else:
-                rows = self.__execute_query(
-                    "SELECT DISTINCT user_id FROM mentions ORDER BY user_id ASC"
-                )
-                agent_ids = [row[0] for row in rows]
+        return self.__mention_network_graph(
+            from_round=from_round, to_round=to_round, agent_ids=agent_ids
+        )
 
-        networks = {}
+    def __mention_network_graph(self, from_round=None, to_round=None, agent_ids=None):
+        """
+        Internal helper that builds the mention network without managing the
+        database connection lifecycle.
+        """
+        schema = self.__get_schema()
+        if not schema.has_table("mentions") or not schema.has_table("post"):
+            return nx.DiGraph()
 
-        for agent in agent_ids:
-            networks[agent] = self.mention_ego_network(agent, from_round, to_round)
+        time_filter, time_params = self.__build_time_filter(
+            from_round, to_round, "p.round"
+        )
+        query = (
+            "SELECT p.user_id, m.user_id "
+            "FROM post AS p, mentions AS m "
+            "WHERE p.id = m.post_id"
+            f"{time_filter} "
+            "ORDER BY p.round ASC, p.id ASC, m.id ASC"
+        )
+        rows = self.__execute_query(query, time_params)
+        allowed_agents = set(agent_ids) if agent_ids is not None else None
 
-        # merge the networks
-        merged_network = nx.compose_all(networks.values())
+        edges = defaultdict(int)
+        for source, target in rows:
+            if allowed_agents is not None and (
+                source not in allowed_agents or target not in allowed_agents
+            ):
+                continue
+            edges[(source, target)] += 1
 
-        return merged_network
+        graph = nx.DiGraph()
+        for (source, target), weight in edges.items():
+            graph.add_edge(source, target, weight=weight)
+        return graph
