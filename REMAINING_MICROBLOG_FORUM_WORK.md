@@ -26,10 +26,10 @@ ordered by implementation priority.
 
 ## 4. Deepen multiplex interaction analysis
 
-- Add layer-specific centrality metrics.
-- Add interaction tie-strength analysis by layer.
-- Add richer overlap reporting between layers.
-- Add polarization / reciprocity views over combined interaction graphs.
+- [x] Add layer-specific centrality metrics.
+- [x] Add interaction tie-strength analysis by layer.
+- [x] Add richer overlap reporting between layers.
+- [x] Add polarization / reciprocity views over combined interaction graphs.
 
 ## 5. Harden performance for larger runs
 

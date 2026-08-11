@@ -541,7 +541,19 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(multiplex["layer_metrics"]["mention"]["edge_count"], 2)
         self.assertEqual(multiplex["layer_metrics"]["reply"]["edge_count"], 2)
         self.assertEqual(multiplex["layer_metrics"]["reaction"]["edge_count"], 1)
-        self.assertEqual(multiplex["layer_metrics"]["recommendation"]["edge_count"], 2)
+        self.assertEqual(
+            multiplex["layer_metrics"]["recommendation"]["edge_count"], 2
+        )
+        self.assertIn("centrality", multiplex["layer_metrics"]["reply"])
+        self.assertIn("tie_strength", multiplex["layer_metrics"]["reply"])
+        self.assertEqual(
+            multiplex["layer_metrics"]["reply"]["centrality"]["top_in_degree"]["node"],
+            1,
+        )
+        self.assertEqual(
+            multiplex["layer_metrics"]["reply"]["tie_strength"]["weighted_edge_count"],
+            2,
+        )
         self.assertEqual(
             multiplex["pairwise_overlap"]["reply|reaction"]["shared_edge_count"], 1
         )
@@ -549,7 +561,15 @@ class RegressionTestCase(unittest.TestCase):
             multiplex["pairwise_overlap"]["reply|recommendation"]["shared_edge_count"],
             1,
         )
+        self.assertGreaterEqual(
+            multiplex["pairwise_overlap"]["reply|recommendation"]["shared_edge_share"],
+            0.5,
+        )
         self.assertGreaterEqual(multiplex["combined"]["edge_count"], 5)
+        self.assertIn("combined_polarization", multiplex)
+        self.assertGreaterEqual(
+            multiplex["combined_polarization"]["reciprocity"], 0.0
+        )
 
     def test_time_series_analytics(self):
         timeline = self.handler.activity_timeline()

@@ -3904,6 +3904,134 @@ class YDataHandler:
             ),
         }
 
+    def __layer_centrality_summary(self, graph):
+        """
+        Summarize the dominant central nodes for a graph layer.
+        """
+        if graph.number_of_nodes() == 0:
+            return {
+                "top_degree": {"node": None, "score": 0.0},
+                "top_betweenness": {"node": None, "score": 0.0},
+                "top_in_degree": {"node": None, "score": 0.0},
+                "top_out_degree": {"node": None, "score": 0.0},
+            }
+
+        def _best(score_map):
+            if not score_map:
+                return {"node": None, "score": 0.0}
+            node, score = max(
+                score_map.items(), key=lambda item: (item[1], str(item[0]))
+            )
+            return {"node": node, "score": float(score)}
+
+        undirected = graph.to_undirected()
+        degree_scores = nx.degree_centrality(undirected)
+        betweenness_scores = (
+            nx.betweenness_centrality(undirected) if undirected.number_of_nodes() > 1 else {}
+        )
+        in_degree_scores = {
+            node: float(score) for node, score in graph.in_degree()
+        }
+        out_degree_scores = {
+            node: float(score) for node, score in graph.out_degree()
+        }
+
+        return {
+            "top_degree": _best(degree_scores),
+            "top_betweenness": _best(betweenness_scores),
+            "top_in_degree": _best(in_degree_scores),
+            "top_out_degree": _best(out_degree_scores),
+        }
+
+    def __layer_tie_strength_summary(self, graph):
+        """
+        Summarize weighted tie strength within a graph layer.
+        """
+        weights = [
+            float(data.get("weight", 1))
+            for _, _, data in graph.edges(data=True)
+        ]
+        if not weights:
+            return {
+                "weighted_edge_count": 0,
+                "total_weight": 0.0,
+                "average_weight": 0.0,
+                "max_weight": 0.0,
+                "strong_tie_count": 0,
+                "strong_tie_share": 0.0,
+            }
+
+        strong_ties = sum(1 for weight in weights if weight > 1.0)
+        return {
+            "weighted_edge_count": len(weights),
+            "total_weight": float(sum(weights)),
+            "average_weight": float(sum(weights) / len(weights)),
+            "max_weight": float(max(weights)),
+            "strong_tie_count": strong_ties,
+            "strong_tie_share": strong_ties / len(weights),
+        }
+
+    def __combined_multiplex_polarization(self, graph):
+        """
+        Summarize polarization and reciprocity in a combined interaction graph.
+        """
+        if graph.number_of_nodes() == 0:
+            return {
+                "community_count": 0,
+                "community_sizes": [],
+                "largest_community_size": 0,
+                "modularity": 0.0,
+                "cross_community_edge_ratio": 0.0,
+                "reciprocity": 0.0,
+                "weak_component_count": 0,
+                "largest_component_share": 0.0,
+            }
+
+        undirected = graph.to_undirected()
+        if undirected.number_of_edges() > 0 and undirected.number_of_nodes() > 1:
+            communities = list(
+                nx.algorithms.community.greedy_modularity_communities(undirected)
+            )
+            modularity = (
+                nx.algorithms.community.modularity(undirected, communities)
+                if len(communities) > 1
+                else 0.0
+            )
+        else:
+            communities = [set(undirected.nodes())]
+            modularity = 0.0
+
+        community_map = {}
+        for index, community in enumerate(communities):
+            for node in community:
+                community_map[node] = index
+
+        cross_edges = 0
+        for source, target in graph.edges():
+            if community_map.get(source) != community_map.get(target):
+                cross_edges += 1
+
+        weak_components = list(nx.weakly_connected_components(graph))
+        largest_component = max((len(component) for component in weak_components), default=0)
+        total_nodes = graph.number_of_nodes()
+
+        return {
+            "community_count": len(communities),
+            "community_sizes": [len(community) for community in communities],
+            "largest_community_size": max(
+                (len(community) for community in communities), default=0
+            ),
+            "modularity": modularity,
+            "cross_community_edge_ratio": (
+                cross_edges / graph.number_of_edges() if graph.number_of_edges() else 0.0
+            ),
+            "reciprocity": nx.reciprocity(graph) if graph.number_of_edges() else 0.0,
+            "weak_component_count": len(weak_components),
+            "largest_component_share": (
+                largest_component / total_nodes if total_nodes else 0.0
+            ),
+        }
+
     @_handle_db_connection
     def interaction_layers(self, from_round=None, to_round=None, agent_ids=None):
         """
@@ -3960,7 +4088,12 @@ class YDataHandler:
             from_round=from_round, to_round=to_round, agent_ids=agent_ids
         )
         layer_metrics = {
-            name: self.__layer_summary(graph) for name, graph in layers.items()
+            name: {
+                **self.__layer_summary(graph),
+                "centrality": self.__layer_centrality_summary(graph),
+                "tie_strength": self.__layer_tie_strength_summary(graph),
+            }
+            for name, graph in layers.items()
         }
 
         overlap = {}
@@ -3978,13 +4111,25 @@ class YDataHandler:
                 key = f"{left_name}|{right_name}"
                 overlap[key] = {
                     "shared_edge_count": len(shared_edges),
+                    "shared_edge_share": (
+                        len(shared_edges) / min(len(left_edges), len(right_edges))
+                        if left_edges and right_edges
+                        else 0.0
+                    ),
                     "edge_jaccard": (
                         len(shared_edges) / len(union_edges) if union_edges else 0.0
                     ),
                     "shared_node_count": len(shared_nodes),
+                    "shared_node_share": (
+                        len(shared_nodes) / min(len(left_nodes), len(right_nodes))
+                        if left_nodes and right_nodes
+                        else 0.0
+                    ),
                     "node_jaccard": (
                         len(shared_nodes) / len(union_nodes) if union_nodes else 0.0
                     ),
+                    "exclusive_edge_count": len(union_edges) - len(shared_edges),
+                    "exclusive_node_count": len(union_nodes) - len(shared_nodes),
                 }
 
         combined = nx.compose_all(list(layers.values())) if layers else nx.DiGraph()
@@ -3994,6 +4139,7 @@ class YDataHandler:
             "layer_metrics": layer_metrics,
             "pairwise_overlap": overlap,
             "combined": self.__layer_summary(combined),
+            "combined_polarization": self.__combined_multiplex_polarization(combined),
         }
         return self.__analysis_cache_set(
             result,
