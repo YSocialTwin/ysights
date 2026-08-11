@@ -2,6 +2,8 @@ Tutorials
 =========
 
 Interactive Jupyter notebook tutorials demonstrating ySights functionality.
+The examples now use opaque identifiers so they work with either numeric IDs
+or UUID-like values depending on the source database.
 
 .. toctree::
    :maxdepth: 2
@@ -56,8 +58,10 @@ Introduction to basic ySights functionality:
 - Working with Agents and Posts
 - Basic queries and visualizations
 - Agent interest profiles
+- Built-in summary reports, cache diagnostics, and index suggestions
 
-**Topics Covered:** Data loading, agent filtering, post retrieval, custom queries
+**Topics Covered:** Data loading, agent filtering, post retrieval, custom queries,
+summary diagnostics
 
 2. Network Analysis
 ~~~~~~~~~~~~~~~~~~~
@@ -70,8 +74,10 @@ Social network extraction and analysis:
 - Ego network analysis
 - Community detection
 - Network visualization
+- Thread-level summaries and graph metrics
 
-**Topics Covered:** Graph analysis, centrality, communities, visualization
+**Topics Covered:** Graph analysis, centrality, communities, thread analytics,
+visualization
 
 3. Algorithms
 ~~~~~~~~~~~~~
@@ -81,9 +87,11 @@ Advanced analytical algorithms:
 - Profile similarity analysis
 - Visibility paradox detection
 - Recommendation system metrics
-- Topic dynamics analysis
+- Topic lifecycle analysis
+- Moderation and forum session summaries
 
-**Topics Covered:** Profile analysis, paradox detection, engagement metrics, topic spread
+**Topics Covered:** Profile analysis, paradox detection, engagement metrics,
+topic spread, moderation reporting
 
 4. Visualization
 ~~~~~~~~~~~~~~~~
@@ -95,9 +103,11 @@ Creating publication-ready visualizations:
 - Profile similarity visualizations
 - Paradox density plots
 - Recommendation system analysis
+- Topic lifecycle charts and summary-driven diagnostics
 - Custom dashboards
 
-**Topics Covered:** Plotting, dashboards, publication-quality figures
+**Topics Covered:** Plotting, dashboards, publication-quality figures,
+topic lifecycle visualization
 
 Learning Path
 -------------

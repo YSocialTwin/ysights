@@ -9,6 +9,8 @@ Introduction to ySights basics:
 - Initializing YDataHandler
 - Loading and exploring simulation data
 - Working with Agents and Posts
+- Using opaque identifiers from the dataset
+- Built-in summaries and cache diagnostics
 - Basic data queries and visualizations
 
 ### 2. Network Analysis (`02_network_analysis.ipynb`)
@@ -16,6 +18,7 @@ Social network extraction and analysis:
 - Extracting social and mention networks
 - Computing network metrics (density, centrality)
 - Analyzing ego networks
+- Thread summaries and graph metrics
 - Community detection
 - Network visualization
 
@@ -24,14 +27,15 @@ Advanced analytical algorithms:
 - Profile similarity analysis
 - Visibility paradox detection
 - Recommendation system metrics
-- Topic dynamics (spread, adoption, peak engagement)
+- Topic lifecycle analysis
+- Moderation and forum session summaries
 
 ### 4. Visualization (`04_visualization.ipynb`)
 Creating publication-ready plots:
 - Global trends (daily trends, hashtags, emotions)
 - Topic evolution visualizations
 - Profile similarity plots
-- Paradox visualizations
+- Summary and moderation diagnostics
 - Recommendation system analysis
 - Custom dashboards
 
