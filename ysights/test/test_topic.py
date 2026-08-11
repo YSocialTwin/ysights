@@ -51,8 +51,19 @@ class TopicTestCase(unittest.TestCase):
         for value in peaks.values():
             self.assertIsNotNone(value)
 
-    def test_sentiment_diffusion_metrics_is_not_implemented(self):
-        with self.assertRaises(NotImplementedError):
+    def test_sentiment_diffusion_metrics_returns_summary(self):
+        handler = self.get_data_handler()
+        diffusion = sentiment_diffusion_metrics(handler)
+
+        self.assertTrue(diffusion["available"])
+        self.assertEqual(diffusion["post_count"], 3)
+        self.assertEqual(diffusion["recommendation_count"], 3)
+        self.assertEqual(diffusion["sentiment_label_counts"]["positive"], 1)
+        self.assertEqual(diffusion["sentiment_label_counts"]["negative"], 1)
+        self.assertEqual(diffusion["sentiment_label_counts"]["neutral"], 1)
+
+    def test_sentiment_diffusion_metrics_requires_handler(self):
+        with self.assertRaises(ValueError):
             sentiment_diffusion_metrics(None)
 
 

@@ -57,6 +57,15 @@ def _create_fixture_db():
             flirtation REAL
         );
 
+        CREATE TABLE post_sentiment (
+            id INTEGER PRIMARY KEY,
+            post_id INTEGER NOT NULL,
+            neg REAL,
+            pos REAL,
+            neu REAL,
+            compound REAL
+        );
+
         CREATE TABLE recommendations (
             id INTEGER PRIMARY KEY,
             user_id INTEGER NOT NULL,
@@ -177,6 +186,14 @@ def _create_fixture_db():
     cur.execute(
         "INSERT INTO post_toxicity VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (1, 10, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8),
+    )
+    cur.executemany(
+        "INSERT INTO post_sentiment VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (1, 10, 0.05, 0.75, 0.20, 0.80),
+            (2, 11, 0.70, 0.10, 0.20, -0.60),
+            (3, 12, 0.25, 0.25, 0.50, 0.00),
+        ],
     )
     cur.executemany(
         "INSERT INTO recommendations VALUES (?, ?, ?, ?)",
@@ -385,6 +402,26 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(set(mentions_from.successors(1)), {30})
         self.assertEqual(set(mentions_to.successors(1)), {20})
 
+    def test_sentiment_diffusion_metrics_returns_summary(self):
+        diffusion = sentiment_diffusion_metrics(self.handler)
+
+        self.assertTrue(diffusion["available"])
+        self.assertEqual(diffusion["post_count"], 3)
+        self.assertEqual(diffusion["labeled_post_count"], 3)
+        self.assertEqual(diffusion["sentiment_label_counts"], {
+            "positive": 1,
+            "negative": 1,
+            "neutral": 1,
+        })
+        self.assertEqual(diffusion["recommendation_count"], 3)
+        self.assertEqual(diffusion["recommendation_sentiment_counts"], {
+            "positive": 1,
+            "negative": 1,
+            "neutral": 1,
+        })
+        self.assertEqual(list(diffusion["timeline"]["round"]), [1, 5])
+        self.assertEqual(list(diffusion["timeline"]["recommended_exposures"]), [2, 1])
+
     def test_placeholder_public_apis_raise(self):
         spread = topic_spread(self.handler)
         self.assertIn(200, spread)
@@ -398,7 +435,7 @@ class RegressionTestCase(unittest.TestCase):
         peaks = peak_engagement_time(self.handler)
         self.assertEqual(peaks, {200: 1, 201: 5})
 
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(ValueError):
             sentiment_diffusion_metrics(None)
 
     def test_schema_capabilities_and_frames(self):
