@@ -1190,7 +1190,9 @@ class YDataHandler:
         avg_sentence_length = (
             (sum(sentence_lengths) / len(sentence_lengths)) if sentence_lengths else 0.0
         )
-        readability_proxy = 100.0 - (avg_sentence_length * 1.5) - (avg_word_length * 2.0)
+        readability_proxy = (
+            100.0 - (avg_sentence_length * 1.5) - (avg_word_length * 2.0)
+        )
         lexical_diversity = (len(unique_words) / len(words)) if words else 0.0
         duplicate_token_ratio = (
             normalized["duplicate_token_count"] / len(tokens) if tokens else 0.0
@@ -1289,7 +1291,9 @@ class YDataHandler:
             message_id,
         )
 
-    def semantic_similarity(self, text_a, text_b, use_embeddings=False, model_name=None):
+    def semantic_similarity(
+        self, text_a, text_b, use_embeddings=False, model_name=None
+    ):
         """
         Compare two text snippets using lexical similarity or optional embeddings.
         """
@@ -1326,9 +1330,7 @@ class YDataHandler:
         norm_b = math.sqrt(sum(value * value for value in tokens_b.values()))
         lexical_cosine = dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
         token_union = set(tokens_a) | set(tokens_b)
-        token_jaccard = (
-            len(shared_tokens) / len(token_union) if token_union else 0.0
-        )
+        token_jaccard = len(shared_tokens) / len(token_union) if token_union else 0.0
 
         return {
             "mode": "lexical",
@@ -2231,7 +2233,9 @@ class YDataHandler:
         post_counts = list(exposure_by_post.values())
         total_exposures = float(exposure_count)
         top_post_share = (
-            max(post_counts) / total_exposures if post_counts and total_exposures else 0.0
+            max(post_counts) / total_exposures
+            if post_counts and total_exposures
+            else 0.0
         )
         if post_counts:
             top_n = max(1, int(len(post_counts) * 0.1))
@@ -3151,7 +3155,9 @@ class YDataHandler:
         if "round" in messages.columns and not messages["round"].isna().all():
             session_span = int(messages["round"].max() - messages["round"].min())
         elif "created_at" in messages.columns:
-            session_span = f"{messages['created_at'].min()}..{messages['created_at'].max()}"
+            session_span = (
+                f"{messages['created_at'].min()}..{messages['created_at'].max()}"
+            )
         else:
             session_span = None
 
@@ -3198,7 +3204,9 @@ class YDataHandler:
 
         session_row = dict(zip(session_columns, session_rows[0]))
         messages = self.__forum_session_message_frame(session_id)
-        result = self.__forum_session_summary_from_data(session_id, session_row, messages)
+        result = self.__forum_session_summary_from_data(
+            session_id, session_row, messages
+        )
         return self.__analysis_cache_set(result, "forum_session_summary", session_id)
 
     @_handle_db_connection
@@ -3224,7 +3232,8 @@ class YDataHandler:
         for session_row in sessions:
             session_id = session_row["id"]
             session_messages = grouped_messages.get(
-                session_id, messages.iloc[0:0].copy() if not messages.empty else messages
+                session_id,
+                messages.iloc[0:0].copy() if not messages.empty else messages,
             )
             summaries[session_id] = self.__forum_session_summary_from_data(
                 session_id, session_row, session_messages
@@ -3403,7 +3412,12 @@ class YDataHandler:
         if self.__get_schema().has_table("forum_chat_sessions"):
             targets.append(("forum_session_summaries", self.forum_session_summaries))
 
-        if self.__get_schema().has_table("follow") or self.__get_schema().has_table("mentions") or self.__get_schema().has_table("reactions") or self.__get_schema().has_table("recommendations"):
+        if (
+            self.__get_schema().has_table("follow")
+            or self.__get_schema().has_table("mentions")
+            or self.__get_schema().has_table("reactions")
+            or self.__get_schema().has_table("recommendations")
+        ):
             targets.append(("interaction_layers", self.interaction_layers))
             targets.append(("multiplex_metrics", self.multiplex_metrics))
 
@@ -3805,7 +3819,9 @@ class YDataHandler:
             "ORDER BY p.round ASC, p.id ASC"
         )
         rows = self.__execute_query(query, time_params)
-        author_by_post = self.__post_author_map(from_round=from_round, to_round=to_round)
+        author_by_post = self.__post_author_map(
+            from_round=from_round, to_round=to_round
+        )
         allowed_agents = set(agent_ids) if agent_ids is not None else None
 
         edges = defaultdict(int)
@@ -3934,10 +3950,7 @@ class YDataHandler:
                 time_params,
             )
 
-        authors = {
-            row[0]: row[1]
-            for row in rows
-        }
+        authors = {row[0]: row[1] for row in rows}
         return self.__analysis_cache_set(
             authors,
             *cache_key,
@@ -3982,14 +3995,12 @@ class YDataHandler:
         undirected = graph.to_undirected()
         degree_scores = nx.degree_centrality(undirected)
         betweenness_scores = (
-            nx.betweenness_centrality(undirected) if undirected.number_of_nodes() > 1 else {}
+            nx.betweenness_centrality(undirected)
+            if undirected.number_of_nodes() > 1
+            else {}
         )
-        in_degree_scores = {
-            node: float(score) for node, score in graph.in_degree()
-        }
-        out_degree_scores = {
-            node: float(score) for node, score in graph.out_degree()
-        }
+        in_degree_scores = {node: float(score) for node, score in graph.in_degree()}
+        out_degree_scores = {node: float(score) for node, score in graph.out_degree()}
 
         return {
             "top_degree": _best(degree_scores),
@@ -4003,8 +4014,7 @@ class YDataHandler:
         Summarize weighted tie strength within a graph layer.
         """
         weights = [
-            float(data.get("weight", 1))
-            for _, _, data in graph.edges(data=True)
+            float(data.get("weight", 1)) for _, _, data in graph.edges(data=True)
         ]
         if not weights:
             return {
@@ -4067,7 +4077,9 @@ class YDataHandler:
                 cross_edges += 1
 
         weak_components = list(nx.weakly_connected_components(graph))
-        largest_component = max((len(component) for component in weak_components), default=0)
+        largest_component = max(
+            (len(component) for component in weak_components), default=0
+        )
         total_nodes = graph.number_of_nodes()
 
         return {
@@ -4078,7 +4090,9 @@ class YDataHandler:
             ),
             "modularity": modularity,
             "cross_community_edge_ratio": (
-                cross_edges / graph.number_of_edges() if graph.number_of_edges() else 0.0
+                cross_edges / graph.number_of_edges()
+                if graph.number_of_edges()
+                else 0.0
             ),
             "reciprocity": nx.reciprocity(graph) if graph.number_of_edges() else 0.0,
             "weak_component_count": len(weak_components),

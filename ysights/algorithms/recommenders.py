@@ -337,14 +337,12 @@ def sentiment_diffusion_metrics(YDH: YDataHandler):
     if not YDH.supports_feature("sentiment"):
         return empty_result()
 
-    post_rows = YDH.custom_query(
-        """
+    post_rows = YDH.custom_query("""
         SELECT p.id, p.round, s.neg, s.pos, s.neu, s.compound
         FROM post AS p
         JOIN post_sentiment AS s ON s.post_id = p.id
         ORDER BY p.round ASC, p.id ASC
-        """
-    )
+        """)
     if not post_rows:
         return empty_result()
 
@@ -367,13 +365,11 @@ def sentiment_diffusion_metrics(YDH: YDataHandler):
 
     recommendation_rows = []
     if YDH.has_table("recommendations"):
-        recommendation_rows = YDH.custom_query(
-            """
+        recommendation_rows = YDH.custom_query("""
             SELECT r.user_id, r.post_ids, r.round
             FROM recommendations AS r
             ORDER BY r.round ASC, r.id ASC
-            """
-        )
+            """)
 
     recommendation_counts = {"positive": 0, "negative": 0, "neutral": 0}
     timeline_rows = []
@@ -409,15 +405,19 @@ def sentiment_diffusion_metrics(YDH: YDataHandler):
             )
 
     if timeline_rows:
-        timeline = pd.DataFrame(timeline_rows).groupby("round", as_index=False).agg(
-            {
-                "post_count": "sum",
-                "positive_posts": "sum",
-                "negative_posts": "sum",
-                "neutral_posts": "sum",
-                "compound": "mean",
-                "recommended_exposures": "sum",
-            }
+        timeline = (
+            pd.DataFrame(timeline_rows)
+            .groupby("round", as_index=False)
+            .agg(
+                {
+                    "post_count": "sum",
+                    "positive_posts": "sum",
+                    "negative_posts": "sum",
+                    "neutral_posts": "sum",
+                    "compound": "mean",
+                    "recommended_exposures": "sum",
+                }
+            )
         )
         timeline = timeline.rename(columns={"compound": "average_compound"})
     else:

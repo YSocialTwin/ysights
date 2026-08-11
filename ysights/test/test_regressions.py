@@ -408,17 +408,23 @@ class RegressionTestCase(unittest.TestCase):
         self.assertTrue(diffusion["available"])
         self.assertEqual(diffusion["post_count"], 3)
         self.assertEqual(diffusion["labeled_post_count"], 3)
-        self.assertEqual(diffusion["sentiment_label_counts"], {
-            "positive": 1,
-            "negative": 1,
-            "neutral": 1,
-        })
+        self.assertEqual(
+            diffusion["sentiment_label_counts"],
+            {
+                "positive": 1,
+                "negative": 1,
+                "neutral": 1,
+            },
+        )
         self.assertEqual(diffusion["recommendation_count"], 3)
-        self.assertEqual(diffusion["recommendation_sentiment_counts"], {
-            "positive": 1,
-            "negative": 1,
-            "neutral": 1,
-        })
+        self.assertEqual(
+            diffusion["recommendation_sentiment_counts"],
+            {
+                "positive": 1,
+                "negative": 1,
+                "neutral": 1,
+            },
+        )
         self.assertEqual(list(diffusion["timeline"]["round"]), [1, 5])
         self.assertEqual(list(diffusion["timeline"]["recommended_exposures"]), [2, 1])
 
@@ -430,12 +436,15 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(summary["unique_posts"], 3)
         self.assertEqual(summary["unique_recipients"], 1)
         self.assertEqual(summary["unique_authors"], 2)
-        self.assertEqual(summary["conversion_counts"], {
-            "reaction": 2,
-            "reply": 1,
-            "mention": 0,
-            "any": 2,
-        })
+        self.assertEqual(
+            summary["conversion_counts"],
+            {
+                "reaction": 2,
+                "reply": 1,
+                "mention": 0,
+                "any": 2,
+            },
+        )
         self.assertAlmostEqual(summary["conversion_rates"]["reaction"], 2 / 3)
         self.assertAlmostEqual(summary["feedback_loop"]["repeat_pair_rate"], 0.0)
         self.assertEqual(list(summary["timeline"]["round"]), [1, 5])
@@ -541,9 +550,7 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(multiplex["layer_metrics"]["mention"]["edge_count"], 2)
         self.assertEqual(multiplex["layer_metrics"]["reply"]["edge_count"], 2)
         self.assertEqual(multiplex["layer_metrics"]["reaction"]["edge_count"], 1)
-        self.assertEqual(
-            multiplex["layer_metrics"]["recommendation"]["edge_count"], 2
-        )
+        self.assertEqual(multiplex["layer_metrics"]["recommendation"]["edge_count"], 2)
         self.assertIn("centrality", multiplex["layer_metrics"]["reply"])
         self.assertIn("tie_strength", multiplex["layer_metrics"]["reply"])
         self.assertEqual(
@@ -567,9 +574,7 @@ class RegressionTestCase(unittest.TestCase):
         )
         self.assertGreaterEqual(multiplex["combined"]["edge_count"], 5)
         self.assertIn("combined_polarization", multiplex)
-        self.assertGreaterEqual(
-            multiplex["combined_polarization"]["reciprocity"], 0.0
-        )
+        self.assertGreaterEqual(multiplex["combined_polarization"]["reciprocity"], 0.0)
 
     def test_time_series_analytics(self):
         timeline = self.handler.activity_timeline()
