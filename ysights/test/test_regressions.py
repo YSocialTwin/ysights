@@ -485,9 +485,7 @@ class RegressionTestCase(unittest.TestCase):
         self.assertEqual(multiplex["layer_metrics"]["mention"]["edge_count"], 2)
         self.assertEqual(multiplex["layer_metrics"]["reply"]["edge_count"], 2)
         self.assertEqual(multiplex["layer_metrics"]["reaction"]["edge_count"], 1)
-        self.assertEqual(
-            multiplex["layer_metrics"]["recommendation"]["edge_count"], 2
-        )
+        self.assertEqual(multiplex["layer_metrics"]["recommendation"]["edge_count"], 2)
         self.assertEqual(
             multiplex["pairwise_overlap"]["reply|reaction"]["shared_edge_count"], 1
         )
