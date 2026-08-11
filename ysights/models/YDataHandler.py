@@ -1108,50 +1108,124 @@ class YDataHandler:
             to_round=to_round,
         )
 
-    def __text_profile(self, text):
+    def normalize_text(
+        self,
+        text,
+        lower=True,
+        strip_urls=True,
+        strip_hashtags=False,
+        strip_mentions=False,
+    ):
+        """
+        Normalize free text for semantic analysis.
+        """
+        import re
+        import string
+
+        text = text or ""
+        urls = re.findall(r"https?://\S+|www\.\S+", text)
+        working = text
+        if strip_urls and urls:
+            working = re.sub(r"https?://\S+|www\.\S+", " ", working)
+
+        if lower:
+            working = working.lower()
+
+        hashtag_tokens = re.findall(r"#\w+(?:'\w+)?", working)
+        mention_tokens = re.findall(r"@\w+(?:'\w+)?", working)
+
+        if strip_hashtags:
+            working = re.sub(r"#\w+(?:'\w+)?", " ", working)
+        if strip_mentions:
+            working = re.sub(r"@\w+(?:'\w+)?", " ", working)
+
+        punctuation_count = sum(1 for ch in working if ch in string.punctuation)
+        translation = str.maketrans({ch: " " for ch in string.punctuation})
+        normalized_text = re.sub(r"\s+", " ", working.translate(translation)).strip()
+        tokens = re.findall(r"\w+(?:'\w+)?", normalized_text)
+
+        return {
+            "original_text": text,
+            "normalized_text": normalized_text,
+            "tokens": tokens,
+            "url_count": len(urls),
+            "hashtag_count": len(hashtag_tokens),
+            "mention_count": len(mention_tokens),
+            "punctuation_count": punctuation_count,
+            "duplicate_token_count": max(len(tokens) - len(set(tokens)), 0),
+        }
+
+    def text_semantic_profile(self, text):
         """
         Extract lightweight semantic features from a text string.
         """
         import math
         import re
-        import string
         from collections import Counter
 
-        text = text or ""
-        tokens = re.findall(r"[#@]?\w+(?:'\w+)?", text)
+        normalized = self.normalize_text(text)
+        raw_text = normalized["original_text"]
+        tokens = normalized["tokens"]
         words = [
             token
             for token in tokens
             if not token.startswith("#") and not token.startswith("@")
         ]
         lower_word_counts = Counter(word.lower() for word in words)
-        alpha_chars = [ch for ch in text if ch.isalpha()]
+        alpha_chars = [ch for ch in raw_text if ch.isalpha()]
         upper_chars = [ch for ch in alpha_chars if ch.isupper()]
-        punctuation_chars = [ch for ch in text if ch in string.punctuation]
-        urls = re.findall(r"https?://\S+|www\.\S+", text)
-
         word_lengths = [len(word) for word in words]
         avg_word_length = (
             (sum(word_lengths) / len(word_lengths)) if word_lengths else 0.0
         )
         unique_words = {word.lower() for word in words}
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"[.!?]+", raw_text)
+            if sentence.strip()
+        ]
+        sentence_lengths = [
+            len(self.normalize_text(sentence)["tokens"]) for sentence in sentences
+        ]
+        avg_sentence_length = (
+            (sum(sentence_lengths) / len(sentence_lengths)) if sentence_lengths else 0.0
+        )
+        readability_proxy = 100.0 - (avg_sentence_length * 1.5) - (avg_word_length * 2.0)
+        lexical_diversity = (len(unique_words) / len(words)) if words else 0.0
+        duplicate_token_ratio = (
+            normalized["duplicate_token_count"] / len(tokens) if tokens else 0.0
+        )
 
         return {
-            "character_count": len(text),
+            "character_count": len(raw_text),
+            "normalized_character_count": len(normalized["normalized_text"]),
             "token_count": len(tokens),
             "word_count": len(words),
             "unique_word_count": len(unique_words),
-            "type_token_ratio": (len(unique_words) / len(words)) if words else 0.0,
+            "lexical_diversity": lexical_diversity,
+            "type_token_ratio": lexical_diversity,
             "avg_word_length": avg_word_length,
-            "url_count": len(urls),
-            "hashtag_count": sum(1 for token in tokens if token.startswith("#")),
-            "mention_count": sum(1 for token in tokens if token.startswith("@")),
-            "punctuation_count": len(punctuation_chars),
-            "punctuation_ratio": (len(punctuation_chars) / len(text)) if text else 0.0,
+            "url_count": normalized["url_count"],
+            "hashtag_count": normalized["hashtag_count"],
+            "mention_count": normalized["mention_count"],
+            "punctuation_count": normalized["punctuation_count"],
+            "punctuation_ratio": (
+                normalized["punctuation_count"] / len(raw_text) if raw_text else 0.0
+            ),
+            "punctuation_intensity": (
+                normalized["punctuation_count"] / max(len(tokens), 1)
+                if raw_text
+                else 0.0
+            ),
             "uppercase_ratio": (
                 (len(upper_chars) / len(alpha_chars)) if alpha_chars else 0.0
             ),
-            "digit_count": sum(ch.isdigit() for ch in text),
+            "digit_count": sum(ch.isdigit() for ch in raw_text),
+            "sentence_count": len(sentences),
+            "avg_sentence_length": avg_sentence_length,
+            "readability_proxy": readability_proxy,
+            "duplicate_token_count": normalized["duplicate_token_count"],
+            "duplicate_token_ratio": duplicate_token_ratio,
             "entropy_proxy": (
                 -sum(
                     (count / len(words)) * math.log(count / len(words), 2)
@@ -1161,6 +1235,12 @@ class YDataHandler:
                 else 0.0
             ),
         }
+
+    def __text_profile(self, text):
+        """
+        Backward-compatible internal alias for text semantic profiling.
+        """
+        return self.text_semantic_profile(text)
 
     @_handle_db_connection
     def post_semantic_profile(self, post_id):
@@ -1176,7 +1256,7 @@ class YDataHandler:
         if not data:
             raise ValueError(f"Post ID {post_id} does not exist in the database.")
         return self.__analysis_cache_set(
-            self.__text_profile(data[0][0]), "post_semantic_profile", post_id
+            self.text_semantic_profile(data[0][0]), "post_semantic_profile", post_id
         )
 
     @_handle_db_connection
@@ -1204,10 +1284,61 @@ class YDataHandler:
                 f"Forum message ID {message_id} does not exist in the database."
             )
         return self.__analysis_cache_set(
-            self.__text_profile(data[0][0]),
+            self.text_semantic_profile(data[0][0]),
             "forum_message_semantic_profile",
             message_id,
         )
+
+    def semantic_similarity(self, text_a, text_b, use_embeddings=False, model_name=None):
+        """
+        Compare two text snippets using lexical similarity or optional embeddings.
+        """
+        import math
+        from collections import Counter
+
+        text_a = text_a or ""
+        text_b = text_b or ""
+
+        if use_embeddings:
+            try:
+                import numpy as np
+                from sentence_transformers import SentenceTransformer
+
+                model = SentenceTransformer(model_name or "all-MiniLM-L6-v2")
+                vectors = model.encode([text_a, text_b], normalize_embeddings=True)
+                score = float(np.dot(vectors[0], vectors[1]))
+                return {
+                    "mode": "embedding",
+                    "model": model_name or "all-MiniLM-L6-v2",
+                    "score": score,
+                }
+            except Exception:
+                pass
+
+        profile_a = self.text_semantic_profile(text_a)
+        profile_b = self.text_semantic_profile(text_b)
+        tokens_a = Counter(self.normalize_text(text_a)["tokens"])
+        tokens_b = Counter(self.normalize_text(text_b)["tokens"])
+
+        shared_tokens = set(tokens_a) & set(tokens_b)
+        dot = sum(tokens_a[token] * tokens_b[token] for token in shared_tokens)
+        norm_a = math.sqrt(sum(value * value for value in tokens_a.values()))
+        norm_b = math.sqrt(sum(value * value for value in tokens_b.values()))
+        lexical_cosine = dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
+        token_union = set(tokens_a) | set(tokens_b)
+        token_jaccard = (
+            len(shared_tokens) / len(token_union) if token_union else 0.0
+        )
+
+        return {
+            "mode": "lexical",
+            "score": lexical_cosine,
+            "lexical_cosine": lexical_cosine,
+            "token_jaccard": token_jaccard,
+            "shared_token_count": len(shared_tokens),
+            "text_a_profile": profile_a,
+            "text_b_profile": profile_b,
+        }
 
     # Time
     @_handle_db_connection

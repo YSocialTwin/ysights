@@ -595,9 +595,12 @@ class RegressionTestCase(unittest.TestCase):
         post_profile = self.handler.post_semantic_profile(10)
         self.assertGreaterEqual(post_profile["token_count"], 1)
         self.assertIn("entropy_proxy", post_profile)
+        self.assertGreaterEqual(post_profile["lexical_diversity"], 0.0)
+        self.assertIn("readability_proxy", post_profile)
 
         forum_profile = self.handler.forum_message_semantic_profile(1)
         self.assertEqual(forum_profile["token_count"], 2)
+        self.assertGreaterEqual(forum_profile["punctuation_intensity"], 0.0)
 
         user_summary = self.handler.user_profile_summary(1)
         self.assertEqual(user_summary["segment"], "conversationalist")
@@ -619,6 +622,31 @@ class RegressionTestCase(unittest.TestCase):
         self.assertGreaterEqual(community["edge_count"], 1)
         self.assertGreaterEqual(community["cross_community_edge_ratio"], 0.0)
         self.assertLessEqual(community["cross_community_edge_ratio"], 1.0)
+
+    def test_semantic_normalization_and_similarity(self):
+        normalized = self.handler.normalize_text(
+            "Hello, @alice! Visit https://example.com #News"
+        )
+        self.assertEqual(normalized["tokens"], ["hello", "alice", "visit", "news"])
+        self.assertEqual(normalized["url_count"], 1)
+        self.assertEqual(normalized["hashtag_count"], 1)
+        self.assertEqual(normalized["mention_count"], 1)
+
+        profile = self.handler.text_semantic_profile(
+            "Readable short sentence. Another one!"
+        )
+        self.assertEqual(profile["sentence_count"], 2)
+        self.assertGreater(profile["readability_proxy"], 0.0)
+        self.assertGreaterEqual(profile["lexical_diversity"], 0.0)
+
+        similarity = self.handler.semantic_similarity(
+            "Forum reply hello world", "hello world reply"
+        )
+        self.assertEqual(similarity["mode"], "lexical")
+        self.assertGreater(similarity["score"], 0.0)
+        self.assertGreaterEqual(similarity["token_jaccard"], 0.0)
+        self.assertIn("text_a_profile", similarity)
+        self.assertIn("text_b_profile", similarity)
 
     def test_phase5_moderation_forum_and_reporting(self):
         moderation = self.handler.moderation_summary()

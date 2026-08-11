@@ -19,10 +19,10 @@ ordered by implementation priority.
 
 ## 3. Expand semantic content enrichment
 
-- Add text normalization helpers for URLs, hashtags, mentions, punctuation, and casing.
-- Add readability-oriented features.
-- Add lexical diversity and punctuation-intensity metrics.
-- Add optional embedding-based similarity helpers.
+- [x] Add text normalization helpers for URLs, hashtags, mentions, punctuation, and casing.
+- [x] Add readability-oriented features.
+- [x] Add lexical diversity and punctuation-intensity metrics.
+- [x] Add optional embedding-based similarity helpers.
 
 ## 4. Deepen multiplex interaction analysis
 
