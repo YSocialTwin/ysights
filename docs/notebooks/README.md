@@ -25,9 +25,12 @@ Social network extraction and analysis:
 ### 3. Algorithms (`03_algorithms.ipynb`)
 Advanced analytical algorithms:
 - Profile similarity analysis
+- Semantic text enrichment and similarity checks
+- Sentiment diffusion and recommendation exposure analytics
 - Visibility paradox detection
 - Recommendation system metrics
 - Topic lifecycle analysis
+- Multiplex interaction diagnostics
 - Moderation and forum session summaries
 
 ### 4. Visualization (`04_visualization.ipynb`)
@@ -35,6 +38,7 @@ Creating publication-ready plots:
 - Global trends (daily trends, hashtags, emotions)
 - Topic evolution visualizations
 - Profile similarity plots
+- Semantic, sentiment, and multiplex diagnostics
 - Summary and moderation diagnostics
 - Recommendation system analysis
 - Custom dashboards
@@ -73,7 +77,7 @@ These notebooks expect a YSocial simulation database (`.db` file) with tables fo
 **Recommended order:**
 1. Start with "Getting Started" to understand basics
 2. Progress to "Network Analysis" for graph analysis
-3. Explore "Algorithms" for advanced metrics
+3. Explore "Algorithms" for advanced metrics, semantic enrichment, and multiplex analytics
 4. Master "Visualization" for creating plots
 
 ## Tips

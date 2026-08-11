@@ -40,9 +40,9 @@ ordered by implementation priority.
 
 ## 6. Finish documentation alignment
 
-- Keep tutorials and notebooks aligned with the implemented API surface.
-- Remove any remaining placeholder language from public docs.
-- Ensure new methods are documented with opaque identifiers, not numeric-only examples.
+- [x] Keep tutorials and notebooks aligned with the implemented API surface.
+- [x] Remove any remaining placeholder language from public docs.
+- [x] Ensure new methods are documented with opaque identifiers, not numeric-only examples.
 
 ## Suggested Order of Work
 

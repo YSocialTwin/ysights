@@ -85,13 +85,16 @@ visualization
 Advanced analytical algorithms:
 
 - Profile similarity analysis
+- Semantic text enrichment and similarity checks
+- Sentiment diffusion and recommendation exposure analytics
 - Visibility paradox detection
 - Recommendation system metrics
 - Topic lifecycle analysis
+- Multiplex interaction diagnostics
 - Moderation and forum session summaries
 
 **Topics Covered:** Profile analysis, paradox detection, engagement metrics,
-topic spread, moderation reporting
+topic spread, semantic enrichment, multiplex analysis, moderation reporting
 
 4. Visualization
 ~~~~~~~~~~~~~~~~
@@ -101,6 +104,7 @@ Creating publication-ready visualizations:
 - Global trends (daily activity, hashtags, emotions)
 - Topic evolution plots
 - Profile similarity visualizations
+- Semantic, sentiment, and multiplex diagnostics
 - Paradox density plots
 - Recommendation system analysis
 - Topic lifecycle charts and summary-driven diagnostics
@@ -116,7 +120,7 @@ Learning Path
 
 1. **Getting Started** - Master the basics of data loading and exploration
 2. **Network Analysis** - Learn to extract and analyze social networks
-3. **Algorithms** - Explore advanced analytical methods
+3. **Algorithms** - Explore advanced analytical methods, semantic enrichment, and multiplex analytics
 4. **Visualization** - Create compelling visualizations of your results
 
 Each notebook builds on concepts from previous ones, so following this order provides the best learning experience.
